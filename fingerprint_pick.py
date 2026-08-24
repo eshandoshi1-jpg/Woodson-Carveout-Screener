@@ -47,9 +47,29 @@ MAX_SHARE_PCT = 55.0
 # off a broken number; such segments are skipped for candidate eligibility.
 MARGIN_LO, MARGIN_HI = -100.0, 80.0
 
+# Woodson's mandate on the DIVISION (mirrors export_snapshot.div_mandate; $M):
+# revenue in [75, 750] and EBITDA (rev x op-margin) in [6, 30]. Among divestible
+# divisions, prefer one that fits — so "above size" is a real dead-end, not an
+# artifact of naming the biggest unit.
+MANDATE_REV_MIN, MANDATE_REV_MAX = 75.0, 750.0
+MANDATE_EBITDA_MIN, MANDATE_EBITDA_MAX = 6.0, 30.0
+
+
+def _fits_mandate(rev_m, margin_pct):
+    if rev_m is None:
+        return False
+    ebitda = rev_m * margin_pct / 100 if margin_pct is not None else None
+    if rev_m > MANDATE_REV_MAX or (ebitda is not None and ebitda > MANDATE_EBITDA_MAX):
+        return False
+    if rev_m < MANDATE_REV_MIN:
+        return False
+    if ebitda is not None and ebitda < MANDATE_EBITDA_MIN:
+        return False
+    return True
+
 FP_COLS = ["FP_Candidate_Segment", "FP_Candidate_Rev_M", "FP_Candidate_Margin_pct",
            "FP_Candidate_Share_pct", "FP_Archetype", "FP_Grade", "FP_Pct",
-           "FP_Score", "FP_Max"]
+           "FP_Score", "FP_Max", "FP_Has_Fit"]
 
 
 def _clean_seg(s) -> str:
@@ -99,7 +119,7 @@ def pick_for_company(seg_rows: pd.DataFrame) -> dict:
     stated = _num(seg_rows.iloc[0].get("Revenue_M_parent")) or 0.0
     parent_rev = max(seg_sum, stated) or None
 
-    best = None
+    cands = []
     for _, s in seg_rows.iterrows():
         name = _clean_seg(s.get("Segment"))
         low = name.lower()
@@ -127,14 +147,18 @@ def pick_for_company(seg_rows: pd.DataFrame) -> dict:
             "separable": True,
         }
         r = fp.score_segment(seg, parent)
-        cand = {"name": name, "rev": sr, "margin": margin, "share": share, "res": r}
-        # Highest normalized score wins; tie-break toward the smaller (more orphan-like)
-        # share so we never default to the biggest unit.
-        if best is None or (r["pct"], -(share or 0)) > (best["res"]["pct"], -(best["share"] or 0)):
-            best = cand
+        cands.append({"name": name, "rev": sr, "margin": margin, "share": share, "res": r,
+                      "fits": _fits_mandate(sr, margin)})
 
-    if best is None:
+    if not cands:
         return {}
+    # Prefer a Woodson-sized division among the divestible ones; fall back to the
+    # best-scoring overall (which the UI then flags above/below size). Tie-break toward
+    # the smaller (more orphan-like) share so we never default to the biggest unit.
+    fitting = [c for c in cands if c["fits"]]
+    pool = fitting if fitting else cands
+    best = max(pool, key=lambda c: (c["res"]["pct"], -(c["share"] or 0)))
+    any_fit = any(c["fits"] for c in cands)
     r = best["res"]
     return {
         "FP_Candidate_Segment": best["name"],
@@ -146,6 +170,7 @@ def pick_for_company(seg_rows: pd.DataFrame) -> dict:
         "FP_Pct": r["pct"],
         "FP_Score": r["score"],
         "FP_Max": r["max"],
+        "FP_Has_Fit": bool(any_fit),          # does ANY divisible unit fit Woodson's box?
     }
 
 

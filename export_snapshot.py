@@ -264,6 +264,7 @@ def main():
             "sources": [SRC.get(str(r.get("source")), "fortune1000")],
             "archetype": {"strategic_pruner": "pruner", "forced_seller": "forced_seller"}.get(str(r.get("FP_Archetype"))),
             "candidateDivision": division,
+            "hasFitDivision": _truthy(r.get("FP_Has_Fit")),   # a Woodson-sized divisible unit exists
             "segments": build_all_segments(seg_groups.get(r["Company"]), div_name) if seg_groups.get(r["Company"]) is not None else [],
             "tenKUrl": _s(r.get("Filing_Doc_URL")),
             "why": why_text(r),
@@ -273,6 +274,26 @@ def main():
                          "subject": "Woodson Equity — carveout / divestiture inquiry",
                          "body": body},
         })
+
+    # what moved since the previous snapshot — tier upgrades (from the last refresh's re-scan)
+    changes = []
+    prev_path = Path("data/woodson_enriched_prev.xlsx")
+    if prev_path.exists():
+        try:
+            pv = pd.read_excel(prev_path, engine="openpyxl").drop_duplicates("Company")
+            prev_tier = dict(zip(pv["Company"], pv["Tier"].astype(str)))
+            rank = {"Tier 1": 0, "Tier 2": 1, "Tier 3": 2, "Watchlist": 3, "Drop": 4}
+            for _, r in co.iterrows():
+                pt, ct = prev_tier.get(r["Company"]), str(r.get("Tier"))
+                if pt and rank.get(ct, 9) < rank.get(pt, 9):        # improved to a better tier
+                    changes.append({"company": r["Company"], "ticker": _s(r.get("Ticker")),
+                                    "prevTier": tier_val(pt), "newTier": tier_val(ct),
+                                    "score": int(_num(r.get("Propensity_Score")) or 0),
+                                    "hasFitDivision": _truthy(r.get("FP_Has_Fit"))})
+            nrank = {1: 0, 2: 1, 3: 2, "watchlist": 3, "drop": 4}
+            changes.sort(key=lambda x: (nrank.get(x["newTier"], 9), -x["score"]))
+        except Exception:
+            pass
 
     mtime = datetime.fromtimestamp(Path(ENRICHED).stat().st_mtime, tz=timezone.utc)
     coverage = {"runMode": "full", "sources": "10-K / 10-Q / 8-K / SC 13D/G"}
@@ -293,6 +314,7 @@ def main():
             "engineVersion": "woodson-2026.08",
             "coverage": coverage,
         },
+        "changes": changes[:12],
         "companies": companies,
     }
     Path(OUT).parent.mkdir(exist_ok=True)

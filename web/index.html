@@ -148,6 +148,13 @@ tbody tr.row.kbd{box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-
 .chev{color:var(--text-muted)}
 .expandrow td{padding:0;background:var(--bg);border-bottom:1px solid var(--border)}
 .count-note{font-size:12px;color:var(--text-muted);padding:8px 2px 0}
+.movers{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:16px}
+.movers-l{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin-right:2px}
+.mover{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:var(--text);background:var(--group);border-radius:7px;padding:4px 10px}
+.mover:hover{background:var(--accent-soft);text-decoration:none}
+.mv-t{font-size:11px;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
+.mv-fit{width:7px;height:7px;border-radius:50%;background:var(--positive)}
+.ohelp{font-size:13px;color:var(--text-secondary);margin:-4px 0 14px;line-height:1.55;max-width:92ch}
 
 /* ── badges / chips ──────────────────────────────────── */
 .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;letter-spacing:.02em;white-space:nowrap}
@@ -206,6 +213,13 @@ tbody tr.row.kbd{box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-
 .siglist{display:flex;flex-direction:column;gap:8px}
 .sigrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .sigrow .src{font-size:12px;color:var(--text-secondary)}
+.sigd{padding:11px 0;border-bottom:1px solid var(--border)}
+.sigd:last-child{border-bottom:none}
+.sigd-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sigd-name{font-weight:600;font-size:14px}
+.sigd-name.hard{color:var(--accent)}
+.sigd-l{font-size:13px;color:var(--text-secondary);margin-top:3px;line-height:1.5}
+.sigd-k{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-right:8px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
 .contact-name{font-weight:600} .contact-title{font-size:13px;color:var(--text-secondary)}
 .cmail{display:flex;align-items:center;gap:8px;margin-top:8px;font-family:var(--mono);font-size:12px}
@@ -259,16 +273,30 @@ noscript{display:block;padding:40px;text-align:center}
 <script>
 "use strict";
 const SNAP_SRC = "fetch";
-let META, COMPANIES;
+let META, COMPANIES, CHANGES=[];
 
 const SIG={
-  held_for_sale:{label:"Held for sale",hard:true},
-  exploring_alternatives:{label:"Exploring alternatives",hard:true},
-  activist_13d:{label:"Activist 13D",hard:true},
-  deleveraging_intent:{label:"Deleveraging",hard:false},
-  exec_departure:{label:"Exec departure",hard:false},
-  guidance_dividend_cut:{label:"Guidance / dividend cut",hard:false},
-  serial_divester:{label:"Serial divester",hard:false},
+  held_for_sale:{label:"Held for sale",hard:true,
+    shows:"a disposal group is classified held-for-sale on the balance sheet (ASC 360-205).",
+    implicates:"the strongest, earliest hard signal \u2014 management has committed to a plan to sell a specific unit and expects to close within ~12 months. It is on the block now."},
+  exploring_alternatives:{label:"Exploring alternatives",hard:true,
+    shows:"\"exploring strategic alternatives\" or \"strategic review\" language in a 10-K/10-Q, 8-K, or press release.",
+    implicates:"the board has publicly opened the door to a sale, spin-off, or breakup \u2014 a deal process may be forming, and the timing window is live."},
+  activist_13d:{label:"Activist 13D",hard:true,
+    shows:"an investor disclosed a stake over 5% via an active SC 13D (intent to influence), not a passive 13G.",
+    implicates:"activists routinely press boards to shed non-core units or break up the company to close a sum-of-the-parts discount."},
+  deleveraging_intent:{label:"Deleveraging",hard:false,
+    shows:"management's MD&A commits to reducing leverage and paying down debt.",
+    implicates:"a balance-sheet-forced seller often sells even a healthy, marketable division to raise cash \u2014 the sell-to-delever pattern."},
+  exec_departure:{label:"Exec departure",hard:false,
+    shows:"an 8-K (Item 5.02) reporting the exit of a CEO, CFO, or division head.",
+    implicates:"leadership turnover frequently precedes a strategic reset; incoming executives commonly prune non-core units within their first 12-18 months."},
+  guidance_dividend_cut:{label:"Guidance / dividend cut",hard:false,
+    shows:"an 8-K lowered forward guidance or cut the dividend.",
+    implicates:"financial stress and a likely need to raise cash or refocus \u2014 a frequent precursor to divesting underperformers."},
+  serial_divester:{label:"Serial divester",hard:false,
+    shows:"one or more completed divestitures (8-K Item 2.01) in the trailing 18 months.",
+    implicates:"an active portfolio pruner with a playbook and appetite \u2014 more likely to keep shedding units."},
 };
 const SIG_ORDER=["held_for_sale","exploring_alternatives","activist_13d","deleveraging_intent","exec_departure","guidance_dividend_cut","serial_divester"];
 const TIER_ORDER=[1,2,3,"watchlist","drop"];
@@ -310,7 +338,7 @@ function cycleTheme(){const c=localStorage.getItem("wci:theme")||"system";setThe
 const BY_ID={};
 let N_T1,N_T2,N_LIVE,N_CONTACT,N_TARGETS,TIER_COUNTS;
 function initData(snap){
-  META=snap.meta; COMPANIES=snap.companies;
+  META=snap.meta; COMPANIES=snap.companies; CHANGES=snap.changes||[];
   COMPANIES.forEach(c=>{
     c._id=idOf(c);BY_ID[c._id]=c;
     c._hay=[c.company,c.ticker,c.candidateDivision&&c.candidateDivision.name,c.contact&&c.contact.name,c.why].filter(Boolean).join(" ").toLowerCase();
@@ -396,6 +424,15 @@ function sigChip(sig,withLink){
   if(!sig.filing)return `<span class="chip flag" title="Model-flagged \u2014 no filing link">${esc(m.label)} \u00b7 model-flagged</span>`;
   return `<span class="chip ${cls}">${esc(m.label)}${dated}</span>`;
 }
+function sigDepth(s){
+  const m=SIG[s.type]||{label:s.type};
+  const link=s.filing?`<a class="chip ${m.hard?"hard":"soft"}" href="${esc(s.filing.url)}" target="_blank" rel="noopener">${esc(s.filing.form||"filing")}${s.filing.date?" \u00b7 "+fmtDate(s.filing.date):""} <span class="ext">${I.ext}</span></a>`:'<span class="chip flag">model-flagged</span>';
+  return `<div class="sigd">
+    <div class="sigd-h"><span class="sigd-name ${m.hard?"hard":""}">${esc(m.label)}</span>${link}</div>
+    ${m.shows?`<div class="sigd-l"><span class="sigd-k">Shows</span>${esc(m.shows)}</div>`:""}
+    ${m.implicates?`<div class="sigd-l"><span class="sigd-k">Implicates</span>${esc(m.implicates)}</div>`:""}
+  </div>`;
+}
 
 /* ── OVERVIEW ───────────────────────────────────────── */
 function renderOverview(v){
@@ -403,16 +440,18 @@ function renderOverview(v){
   const counts=SIG_ORDER.map(t=>({t,n:COMPANIES.filter(c=>c._live.some(s=>s.type===t)).length}));
   const maxc=Math.max(...counts.map(c=>c.n),1);
   const recent=COMPANIES.flatMap(c=>c._hard.filter(s=>s.date).map(s=>({c,s}))).sort((a,b)=>new Date(b.s.date)-new Date(a.s.date)).slice(0,7);
+  const nFit=COMPANIES.filter(c=>c.hasFitDivision).length;
   v.innerHTML=`
     <div class="crumb">Dashboards</div>
     <div class="ptitle"><h1>Overview</h1></div>
+    ${CHANGES.length?`<div class="movers"><span class="movers-l">Moved since last refresh</span>${CHANGES.map(ch=>{const id=ch.ticker||slug(ch.company);return `<a class="mover" href="#/company/${id}">${esc(ch.company)} <span class="mv-t">${tierLabel(ch.prevTier)} \u2192 ${tierLabel(ch.newTier)}</span>${ch.hasFitDivision?'<span class="mv-fit" title="Has a Woodson-sized division"></span>':""}</a>`;}).join("")}</div>`:""}
     <div class="statband">
       ${statCard(fmtInt(META.universeScanned),"Universe scanned","the full corporate list",null)}
       ${statCard(fmtInt(META.secVerified),"SEC-verified","identity-confirmed",null)}
       ${statCard(N_T1,"Tier 1 targets","highest conviction","#/pipeline?tier=1")}
       ${statCard(N_T2,"Tier 2 prospects","next tier","#/pipeline?tier=2")}
       ${statCard(fmtInt(N_LIVE),"Live signals","timing window open","#/pipeline?signal=held_for_sale,exploring_alternatives,activist_13d")}
-      ${statCard(fmtInt(N_CONTACT),"Direct contacts","Corp Dev / CFO","#/pipeline?contact=1")}
+      ${statCard(fmtInt(nFit),"Woodson-fit deals","a division in the size box","#/pipeline?fit=1")}
     </div>
     <div class="panel">
       <div class="panel-h"><h2>Top targets</h2><span class="sub">Tier 1, by propensity</span><a class="link" href="#/pipeline?tier=1,2">Open pipeline ${I.arr}</a></div>
@@ -444,10 +483,10 @@ let EXP=null, EXP_RESULTS=[];
 const COLLAPSED=new Set(["watchlist","drop"]);
 const SIZE_BANDS={lt50:["< $50M",v=>v!=null&&v<50e6],"50-150":["$50\u2013150M",v=>v!=null&&v>=50e6&&v<150e6],"150-500":["$150\u2013500M",v=>v!=null&&v>=150e6&&v<500e6],gt500:["> $500M",v=>v!=null&&v>=500e6],undisc:["Undisclosed",v=>v==null]};
 function stateFromQuery(q){return {query:q.get("q")||"",tier:(q.get("tier")||"").split(",").filter(Boolean),
-  signal:(q.get("signal")||"").split(",").filter(Boolean),contact:q.get("contact")==="1",mandate:q.get("mandate")==="1",
+  signal:(q.get("signal")||"").split(",").filter(Boolean),contact:q.get("contact")==="1",fit:q.get("fit")==="1",
   size:(q.get("size")||"").split(",").filter(Boolean),sort:q.get("sort")||"score"};}
 function queryFromState(s){const q=new URLSearchParams();if(s.query)q.set("q",s.query);if(s.tier.length)q.set("tier",s.tier.join(","));
-  if(s.signal.length)q.set("signal",s.signal.join(","));if(s.contact)q.set("contact","1");if(s.mandate)q.set("mandate","1");
+  if(s.signal.length)q.set("signal",s.signal.join(","));if(s.contact)q.set("contact","1");if(s.fit)q.set("fit","1");
   if(s.size.length)q.set("size",s.size.join(","));if(s.sort!=="score")q.set("sort",s.sort);return q.toString();}
 function syncHash(){const qs=queryFromState(EXP);history.replaceState(null,"",qs?`#/pipeline?${qs}`:"#/pipeline");}
 function applyFilters(){const s=EXP;const toks=s.query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -456,7 +495,7 @@ function applyFilters(){const s=EXP;const toks=s.query.toLowerCase().split(/\s+/
     if(s.tier.length&&!s.tier.includes(String(c.tier)))return false;
     if(s.signal.length&&!s.signal.some(t=>c._live.some(x=>x.type===t)))return false;
     if(s.contact&&!c.contact)return false;
-    if(s.mandate&&!c.mandateFit)return false;
+    if(s.fit&&!c.hasFitDivision)return false;
     if(s.size.length){const rv=c.candidateDivision&&c.candidateDivision.revenueUsd;if(!s.size.some(b=>SIZE_BANDS[b][1](rv)))return false;}
     return true;});
   const cmp={score:(a,b)=>b.score-a.score,company:(a,b)=>a.company.localeCompare(b.company),
@@ -474,14 +513,14 @@ function renderPipeline(v,q){
       <div class="selwrap"><button class="pill sel ${EXP.signal.length?"on":""}" id="sigbtn">Signals${EXP.signal.length?" \u00b7 "+EXP.signal.length:""} <span class="tg"></span></button>
         <div class="pop" id="sigpop" hidden>${SIG_ORDER.map(t=>`<label><input type="checkbox" data-sig="${t}" ${EXP.signal.includes(t)?"checked":""}>${SIG[t].label}</label>`).join("")}</div></div>
       <button class="pill sel ${EXP.contact?"on":""}" data-tog="contact">Has contact <span class="tg"></span></button>
-      <button class="pill sel ${EXP.mandate?"on":""}" data-tog="mandate">Mandate fit <span class="tg"></span></button>
+      <button class="pill sel ${EXP.fit?"on":""}" data-tog="fit" title="Company has a division inside Woodson's size box">Fits Woodson <span class="tg"></span></button>
       <div class="selwrap"><button class="pill sel ${EXP.size.length?"on":""}" id="sizebtn">Div. size${EXP.size.length?" \u00b7 "+EXP.size.length:""} <span class="tg"></span></button>
         <div class="pop" id="sizepop" hidden>${Object.entries(SIZE_BANDS).map(([k,[l]])=>`<label><input type="checkbox" data-size="${k}" ${EXP.size.includes(k)?"checked":""}>${l}</label>`).join("")}</div></div>
       <select class="sortsel" id="sort">${[["score","Sort: Score"],["company","Company A\u2013Z"],["divrev","Division revenue"]].map(([k,l])=>`<option value="${k}" ${EXP.sort===k?"selected":""}>${l}</option>`).join("")}</select>
     </div>
     <div class="activechips" id="active"></div>
     <div class="panel"><div class="gridwrap"><table>
-      <thead><tr><th>Company</th><th>Candidate division</th><th class="num">Div. rev.</th><th class="num">Margin</th><th class="num">% parent</th><th class="num">Score</th><th>Strongest signal</th><th>Contact</th><th></th></tr></thead>
+      <thead><tr><th>Company</th><th>Candidate division</th><th class="num">Div. rev.</th><th class="num">Margin</th><th class="num">% parent</th><th>Fit</th><th class="num">Score</th><th>Strongest signal</th><th>Contact</th><th></th></tr></thead>
       <tbody id="rows"></tbody></table></div></div>`;
   wirePills();refreshPipeline();
 }
@@ -490,11 +529,11 @@ function refreshPipeline(){
   const rc=$("#rcount");if(rc)rc.textContent=`${res.length.toLocaleString()} of ${COMPANIES.length.toLocaleString()} companies`;
   renderActiveChips();
   const rows=$("#rows");if(!rows)return;
-  if(!res.length){rows.innerHTML=`<tr><td colspan="9"><div class="empty"><div class="big">No companies match.</div><button class="btn ghost sm" onclick="clearAll()">Clear filters</button></div></td></tr>`;return;}
+  if(!res.length){rows.innerHTML=`<tr><td colspan="10"><div class="empty"><div class="big">No companies match.</div><button class="btn ghost sm" onclick="clearAll()">Clear filters</button></div></td></tr>`;return;}
   const groups={};TIER_ORDER.forEach(t=>groups[t]=[]);res.forEach(c=>groups[c.tier].push(c));
   let html="";
   TIER_ORDER.forEach(t=>{const gg=groups[t];if(!gg.length)return;const col=COLLAPSED.has(String(t));
-    html+=`<tr class="grp" onclick="toggleGroup('${t}')"><td colspan="9"><span class="gcar ${col?"":"open"}">${I.chev}</span>${tierLabel(t)}<span class="gcount">${gg.length}</span></td></tr>`;
+    html+=`<tr class="grp" onclick="toggleGroup('${t}')"><td colspan="10"><span class="gcar ${col?"":"open"}">${I.chev}</span>${tierLabel(t)}<span class="gcount">${gg.length}</span></td></tr>`;
     if(!col)html+=gg.map(c=>gridRow(c)).join("");});
   rows.innerHTML=html;
 }
@@ -504,6 +543,7 @@ function gridRow(c){const s=strongest(c);const d=c.candidateDivision;return `<tr
   <td class="num">${d?fmtUsd(d.revenueUsd):"\u2014"}</td>
   <td class="num">${d?fmtPct(d.operatingMarginPct):"\u2014"}</td>
   <td class="num">${d&&d.pctOfParentRevenue!=null?Math.round(d.pctOfParentRevenue)+"%":"\u2014"}</td>
+  <td>${d?segFitDot(d.mandate):segFitDot(null)}</td>
   <td class="num">${scoreCell(c.score)}</td>
   <td>${s?sigChip(s,false):'<span class="muted">\u2014</span>'}</td>
   <td class="sec">${c.contact?esc(c.contact.name):'<span class="muted">\u2014</span>'}</td>
@@ -512,7 +552,7 @@ function toggleGroup(t){COLLAPSED.has(String(t))?COLLAPSED.delete(String(t)):COL
 function toggleExpand(id){const tr=document.querySelector(`tr[data-id="${id}"]`);if(!tr)return;
   const nx=tr.nextElementSibling;if(nx&&nx.classList.contains("expandrow")){nx.remove();return;}
   document.querySelectorAll(".expandrow").forEach(e=>e.remove());
-  const r=document.createElement("tr");r.className="expandrow";r.innerHTML=`<td colspan="9">${profileHtml(BY_ID[id],true)}</td>`;tr.after(r);}
+  const r=document.createElement("tr");r.className="expandrow";r.innerHTML=`<td colspan="10">${profileHtml(BY_ID[id],true)}</td>`;tr.after(r);}
 function wirePills(){
   $("#pills").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
     if(b.dataset.tier!=null){const t=b.dataset.tier;EXP.tier.includes(t)?EXP.tier=EXP.tier.filter(x=>x!==t):EXP.tier.push(t);commit();}
@@ -532,12 +572,12 @@ function renderActiveChips(){const el=$("#active");if(!el)return;const cs=[];let
   EXP.tier.forEach(t=>add(tierLabel(t==="watchlist"||t==="drop"?t:Number(t)),()=>{EXP.tier=EXP.tier.filter(x=>x!==t);commit();}));
   EXP.signal.forEach(t=>add(SIG[t].label,()=>{EXP.signal=EXP.signal.filter(x=>x!==t);commit();}));
   if(EXP.contact)add("Has contact",()=>{EXP.contact=false;commit();});
-  if(EXP.mandate)add("Mandate fit",()=>{EXP.mandate=false;commit();});
+  if(EXP.fit)add("Fits Woodson",()=>{EXP.fit=false;commit();});
   EXP.size.forEach(b=>add(SIZE_BANDS[b][0],()=>{EXP.size=EXP.size.filter(x=>x!==b);commit();}));
   el.innerHTML=cs.length?cs.map(c=>c[0]).join("")+`<button class="clearall" id="clrall">Clear all</button>`:"";
   cs.forEach(c=>{const b=el.querySelector(`[data-x="${c[1]}"]`);if(b)b.onclick=c[2];});
   const ca=$("#clrall");if(ca)ca.onclick=clearAll;}
-function clearAll(){const sort=EXP.sort;EXP={query:"",tier:[],signal:[],contact:false,mandate:false,size:[],sort};const g=$("#gq");if(g)g.value="";commit();}
+function clearAll(){const sort=EXP.sort;EXP={query:"",tier:[],signal:[],contact:false,fit:false,size:[],sort};const g=$("#gq");if(g)g.value="";commit();}
 function popover(btn,pop){const b=$(btn),p=$(pop);if(!b)return;
   b.addEventListener("click",e=>{if(e.target.closest("input"))return;e.stopPropagation();const open=!p.hidden;document.querySelectorAll(".pop").forEach(x=>x.hidden=true);p.hidden=open;});
   document.addEventListener("click",e=>{if(!p.contains(e.target)&&!b.contains(e.target))p.hidden=true;});}
@@ -577,7 +617,7 @@ function profileHtml(c,inline){
   const d=c.candidateDivision,con=c.contact,cd=CONTACTED[c._id];
   const arch=c.archetype==="pruner"?"Strategic pruner":c.archetype==="forced_seller"?"Balance-sheet-forced seller":null;
   const tip=c.archetype==="pruner"?"Sells its sub-scale, underperforming orphan.":"Sells its most marketable division to reduce debt.";
-  const sigs=c.signals.length?c.signals.map(s=>`<div class="sigrow">${sigChip(s,true)}${s.filing?`<span class="src">${esc(s.filing.form||"filing")}${s.filing.date?" \u00b7 "+fmtDate(s.filing.date):""}</span>`:'<span class="src muted">no filing link</span>'}</div>`).join(""):'<span class="muted">No signals flagged.</span>';
+  const sigs=c.signals.length?c.signals.map(sigDepth).join(""):'<span class="muted">No signals flagged.</span>';
   const filings=[...new Map(c.signals.filter(s=>s.filing).map(s=>[s.filing.url,s.filing])).values()];
   return `<div class="profile ${inline?"inline":""}">
     <div class="profile-h"><h2>${esc(c.company)}</h2>${c.ticker?`<span class="tick">${esc(c.ticker)}</span>`:""}${c.cik?`<span class="cik">CIK ${esc(c.cik)}</span>`:""}${tierBadge(c.tier)}${scoreCell(c.score)}${c.mandateFit?'<span class="tag">Mandate fit</span>':""}
@@ -610,16 +650,20 @@ function renderCompany(v,id){const c=BY_ID[id];
 
 /* ── OUTREACH ───────────────────────────────────────── */
 function renderOutreachList(v){
-  const t=COMPANIES.filter(c=>c.tier===1||c.tier===2).sort((a,b)=>b.score-a.score).sort((a,b)=>(!!CONTACTED[a._id])-(!!CONTACTED[b._id]));
+  const t=COMPANIES.filter(c=>c.hasFitDivision&&(c.tier===1||c.tier===2||c.tier===3))
+    .sort((a,b)=>b.score-a.score).sort((a,b)=>(!!CONTACTED[a._id])-(!!CONTACTED[b._id]));
   const notyet=t.filter(c=>!CONTACTED[c._id]).length;
-  v.innerHTML=`<div class="crumb">Outreach</div><div class="ptitle"><h1>Outreach Queue</h1><div class="rt"><span class="count-note">${t.length} targets \u00b7 ${notyet} not yet contacted</span></div></div>
-    <div class="panel"><div class="gridwrap"><table><thead><tr><th>Company</th><th>Tier</th><th>Contact</th><th>Evidence</th><th>Status</th><th></th></tr></thead>
-    <tbody>${t.map(c=>{const cd=CONTACTED[c._id];const et=c.outreach.evidenceTier;return `<tr class="row" onclick="go('#/outreach/${c._id}')">
+  const heldOut=COMPANIES.filter(c=>(c.tier===1||c.tier===2)&&!c.hasFitDivision).length;
+  v.innerHTML=`<div class="crumb">Outreach</div><div class="ptitle"><h1>Outreach Queue</h1><div class="rt"><span class="count-note">${t.length} deals \u00b7 ${notyet} not yet contacted</span></div></div>
+    <div class="ohelp">Only companies with a division inside Woodson's size box \u2014 the deals you can actually do, pitched at that division. ${heldOut} higher-scored targets are held out because no division fits Woodson's size; review them in the pipeline via the <a href="#/pipeline?fit=1">Fits Woodson</a> filter.</div>
+    <div class="panel"><div class="gridwrap"><table><thead><tr><th>Company</th><th>Fit division</th><th class="num">Div. rev.</th><th>Tier</th><th>Contact</th><th>Evidence</th><th>Status</th><th></th></tr></thead>
+    <tbody>${t.map(c=>{const cd=CONTACTED[c._id];const et=c.outreach.evidenceTier;const d=c.candidateDivision;return `<tr class="row" onclick="go('#/outreach/${c._id}')">
       <td><span class="dealname">${esc(c.company)}</span>${c.ticker?`<span class="tick">${esc(c.ticker)}</span>`:""}</td>
+      <td>${d?esc(d.name):"\u2014"}</td><td class="num">${d?fmtUsd(d.revenueUsd):"\u2014"}</td>
       <td>${tierBadge(c.tier)}</td><td class="sec">${c.contact?esc(c.contact.name):'<span class="muted">No contact</span>'}</td>
       <td><span class="tierbadge tier${et}">${et==="A"?"Filed disclosure":et==="B"?"Model analysis":"Generic"}</span></td>
       <td class="sec">${cd?`Contacted ${fmtDate(cd.contactedAt.slice(0,10))}`:'<span class="muted">Not contacted</span>'}</td>
-      <td class="num"><span class="dealname">Draft ${I.arr}</span></td></tr>`;}).join("")}</tbody></table></div></div>`;
+      <td class="num"><span class="dealname">Draft ${I.arr}</span></td></tr>`;}).join("")||'<tr><td colspan="8"><div class="empty">No companies with a Woodson-sized division in the target tiers yet.</div></td></tr>'}</tbody></table></div></div>`;
 }
 function renderOutreachOne(v,id){const c=BY_ID[id];if(!c){v.innerHTML=`<div class="empty"><div class="big">Not found.</div></div>`;return;}
   const et=c.outreach.evidenceTier,cd=CONTACTED[c._id];const hardNoLink=c.signals.some(s=>s.hard&&!s.filing);

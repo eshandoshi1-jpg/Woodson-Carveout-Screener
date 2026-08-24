@@ -336,7 +336,7 @@ function setTheme(m){localStorage.setItem("wci:theme",m);if(m==="system")documen
 function cycleTheme(){const c=localStorage.getItem("wci:theme")||"system";setTheme(c==="system"?"light":c==="light"?"dark":"system");const b=$("#themebtn");if(b)b.innerHTML=(localStorage.getItem("wci:theme")==="dark")?I.moon:I.sun;}
 
 const BY_ID={};
-let N_T1,N_T2,N_LIVE,N_CONTACT,N_TARGETS,TIER_COUNTS;
+let N_T1,N_T2,N_LIVE,N_CONTACT,N_TARGETS,N_QUEUE,TIER_COUNTS;
 function initData(snap){
   META=snap.meta; COMPANIES=snap.companies; CHANGES=snap.changes||[];
   COMPANIES.forEach(c=>{
@@ -349,6 +349,7 @@ function initData(snap){
   N_LIVE=COMPANIES.filter(c=>c._live.length).length;
   N_CONTACT=COMPANIES.filter(c=>c.contact).length;
   N_TARGETS=N_T1+N_T2;
+  N_QUEUE=COMPANIES.filter(c=>c.hasFitDivision&&(c.tier===1||c.tier===2||c.tier===3)).length;
   TIER_COUNTS={};TIER_ORDER.forEach(t=>TIER_COUNTS[t]=COMPANIES.filter(c=>c.tier===t).length);
 }
 const strongest=c=>[...c._live].sort((a,b)=>(b.hard-a.hard)||(SIG_ORDER.indexOf(a.type)-SIG_ORDER.indexOf(b.type)))[0];
@@ -383,7 +384,7 @@ function buildShell(){
        <a data-nav="overview" href="#/overview">Overview</a>
        <div class="grp-l">Pipeline</div>
        <a data-nav="pipeline" href="#/pipeline">Carveout Targets <span class="c">${COMPANIES.length.toLocaleString()}</span></a>
-       <a data-nav="outreach" href="#/outreach">Outreach Queue <span class="c">${N_TARGETS}</span></a>
+       <a data-nav="outreach" href="#/outreach">Outreach Queue <span class="c">${N_QUEUE}</span></a>
        <div class="grp-l">Saved Views</div>
        <a href="#/pipeline?tier=1">Tier 1 targets <span class="c">${N_T1}</span></a>
        <a href="#/pipeline?tier=1,2">All targets <span class="c">${N_TARGETS}</span></a>

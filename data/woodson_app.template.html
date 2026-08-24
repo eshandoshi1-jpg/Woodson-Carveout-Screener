@@ -206,6 +206,7 @@ tbody tr.row.kbd{box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-
 .mtag-weak{background:rgba(163,50,50,.13);color:var(--negative)}
 .fdot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle}
 .fdot-fit{background:var(--positive)} .fdot-below{background:var(--text-muted)} .fdot-above{background:var(--warn)} .fdot-weak{background:var(--negative)} .fdot-unknown{background:var(--border-strong)}
+.fdot-fitq{background:transparent;box-shadow:inset 0 0 0 2px var(--positive)}
 .fitlegend{padding:2px 14px 12px;font-size:11px;color:var(--text-muted);display:flex;gap:16px;flex-wrap:wrap}
 .fitlegend span{display:inline-flex;align-items:center;gap:5px}
 .why{margin:15px 0;font-size:14.5px;line-height:1.55}
@@ -587,12 +588,14 @@ function popover(btn,pop){const b=$(btn),p=$(pop);if(!b)return;
 function mtag(m){
   if(!m||m.fit==="unknown")return "";
   const L={fit:["Fits Woodson's mandate","fit"],below:["Below Woodson's size","below"],above:["Above size \u00b7 >$300M deal","above"],weak:["Right size \u00b7 below $6M EBITDA","weak"]};
-  const [label,cls]=L[m.fit];const eb=m.ebitdaEstUsd!=null?" \u00b7 ~"+fmtUsd(m.ebitdaEstUsd)+" EBITDA":"";
+  let [label,cls]=L[m.fit];
+  if(m.fit==="fit"&&m.verify)label="Fits on revenue \u00b7 verify EBITDA";
+  const eb=m.ebitdaEstUsd!=null?" \u00b7 ~"+fmtUsd(m.ebitdaEstUsd)+" EBITDA":"";
   return `<span class="mtag mtag-${cls}" title="Woodson: revenue >$75M, EBITDA >$6M, deal up to $300M${eb}">${label}</span>`;
 }
-function segFitDot(m){const f=(m&&m.fit)||"unknown";
+function segFitDot(m){const f=(m&&m.fit)||"unknown";const vq=f==="fit"&&m&&m.verify;
   const t={fit:"Fits Woodson's size",below:"Below size",above:"Above size (>$300M)",weak:"Right size, below $6M EBITDA",unknown:"Size unknown"};
-  return `<span class="fdot fdot-${f}" title="${t[f]}"></span>`;}
+  return `<span class="fdot fdot-${vq?"fitq":f}" title="${vq?"Fits on revenue \u2014 verify EBITDA":t[f]}"></span>`;}
 function divContext(c){
   const segs=c.segments||[];if(segs.length<2)return "";
   const rows=segs.map(s=>`<tr class="${s.isCandidate?"cand":""}"><td>${esc(s.name)}${s.isCatchall?' <span class="muted">(other)</span>':""}${s.isCandidate?' <span class="tag">candidate</span>':""}</td><td class="num">${fmtUsd(s.revenueUsd)}</td><td class="num">${fmtPct(s.marginPct)}</td><td class="num">${s.pctOfParent!=null?Math.round(s.pctOfParent)+"%":"\u2014"}</td><td>${segFitDot(s.mandate)}</td></tr>`).join("");
@@ -666,11 +669,29 @@ function renderOutreachList(v){
       <td class="sec">${cd?`Contacted ${fmtDate(cd.contactedAt.slice(0,10))}`:'<span class="muted">Not contacted</span>'}</td>
       <td class="num"><span class="dealname">Draft ${I.arr}</span></td></tr>`;}).join("")||'<tr><td colspan="8"><div class="empty">No companies with a Woodson-sized division in the target tiers yet.</div></td></tr>'}</tbody></table></div></div>`;
 }
+function outreachWhy(c){
+  const d=c.candidateDivision;
+  const divBlock=d?`<div class="divblock"><div class="dn">${esc(d.name)}</div>
+    <div class="divstats"><div><div class="k">Revenue</div><div class="v">${fmtUsd(d.revenueUsd)}</div></div>
+      <div><div class="k">Op. margin</div><div class="v">${fmtPct(d.operatingMarginPct)}</div></div>
+      <div><div class="k">% of parent</div><div class="v">${d.pctOfParentRevenue==null?"\u2014":Math.round(d.pctOfParentRevenue)+"%"}</div></div></div>
+    <div style="margin-top:11px">${mtag(d.mandate)}</div>
+    ${d.mandate&&d.mandate.verify?`<div class="warnline" style="margin-top:10px">Fits Woodson on revenue, but the division's EBITDA is not in the filings \u2014 confirm it clears the $6M floor before pitching.</div>`:""}
+    </div>${divContext(c)}`:'<div class="divblock muted">No specific division named \u2014 approach as a general portfolio review.</div>';
+  const sigs=c.signals.length?c.signals.map(sigDepth).join(""):'<span class="muted">Scored on portfolio structure; no filing-level signal.</span>';
+  return `<div class="panel" style="padding:16px 18px;margin-bottom:18px">
+    <div class="lbl" style="margin-top:0">What we would carve out</div>${divBlock}
+    <div class="lbl">Why they are likely to sell</div><div class="why">${esc(c.why)}</div>
+    <div class="lbl">Signals & what they implicate</div><div>${sigs}</div>
+  </div>`;
+}
 function renderOutreachOne(v,id){const c=BY_ID[id];if(!c){v.innerHTML=`<div class="empty"><div class="big">Not found.</div></div>`;return;}
   const et=c.outreach.evidenceTier,cd=CONTACTED[c._id];const hardNoLink=c.signals.some(s=>s.hard&&!s.filing);
   const body=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);
   v.innerHTML=`<div class="crumb"><a href="#/outreach">Outreach Queue</a> / ${esc(c.company)}</div>
     <div class="ptitle"><h1 style="font-size:22px">${esc(c.company)}</h1><div class="rt sec" style="align-self:center">${c.contact?esc(c.contact.name)+" \u00b7 "+esc(c.contact.title||""):"No contact on file"}</div></div>
+    ${outreachWhy(c)}
+    <div class="lbl">Draft email</div>
     <div class="olayout"><div>
       <span class="tierbadge tier${et}">Evidence: ${et==="A"?"filed disclosure":et==="B"?"model analysis":"none cited \u2014 generic line"}</span>
       ${hardNoLink?`<div class="warnline">Hard signal present but no filing link in snapshot \u2014 verify before sending.</div>`:""}
@@ -679,9 +700,7 @@ function renderOutreachOne(v,id){const c=BY_ID[id];if(!c){v.innerHTML=`<div clas
       <div class="obtns"><button class="btn ghost" id="cs">${I.copy} Copy subject</button><button class="btn primary" id="cb">${I.copy} Copy email</button>
         <button class="btn ghost" id="mk">${cd?"\u2713 Contacted "+fmtDate(cd.contactedAt.slice(0,10)):"Mark as contacted"}</button></div>
     </div><div>
-      <div class="lbl" style="margin-top:0">What this email claims, and where it's from</div>
-      <div class="siglist">${c.signals.length?c.signals.map(s=>`<div class="sigrow">${sigChip(s,true)}${s.filing?`<span class="src">${esc(s.filing.form||"")}${s.filing.date?" \u00b7 "+fmtDate(s.filing.date):""}</span>`:'<span class="src muted">no link</span>'}</div>`).join(""):'<span class="muted">Generic outreach; no filing-level signal.</span>'}</div>
-      ${c.contact?`<div class="lbl">Recipient</div><div class="card"><div class="contact-name">${esc(c.contact.name)}</div><div class="contact-title">${esc(c.contact.title||"")} <span class="tag">${c.contact.function==="corp_dev"?"Corp Dev":"CFO"}</span></div><div class="cmail"><a href="mailto:${esc(c.contact.email)}">${esc(c.contact.email)}</a></div></div>`:""}
+      ${c.contact?`<div class="lbl" style="margin-top:0">Recipient</div><div class="card"><div class="contact-name">${esc(c.contact.name)}</div><div class="contact-title">${esc(c.contact.title||"")} <span class="tag">${c.contact.function==="corp_dev"?"Corp Dev":"CFO"}</span></div><div class="cmail"><a href="mailto:${esc(c.contact.email)}">${esc(c.contact.email)}</a></div></div>`:'<div class="card muted">No verified contact.</div>'}
     </div></div>`;
   $("#sender").addEventListener("input",e=>{SENDER=e.target.value||"Joel Matthew";localStorage.setItem("wci:sender",e.target.value);$("#ebody").textContent=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);});
   $("#cs").onclick=e=>copyText(c.outreach.subject,e.currentTarget,"Copy subject");

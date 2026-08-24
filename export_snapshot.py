@@ -150,7 +150,8 @@ def div_mandate(rev_usd, margin_pct):
         f = "weak"                                    # right size, but under the $6M EBITDA floor
     else:
         f = "fit"
-    return {"fit": f, "ebitdaEstUsd": int(ebitda) if ebitda is not None else None}
+    return {"fit": f, "ebitdaEstUsd": int(ebitda) if ebitda is not None else None,
+            "verify": bool(f == "fit" and ebitda is None)}   # fits on revenue; EBITDA not in the data
 
 
 def build_all_segments(sub, candidate_name):

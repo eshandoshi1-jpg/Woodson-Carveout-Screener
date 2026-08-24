@@ -1,0 +1,18 @@
+{
+  "highWater": "2026-08-24",
+  "lastRun": "2026-08-24T19:09:25.242234Z",
+  "runs": 1,
+  "lastCoverage": {
+    "filingsProcessed": 141,
+    "indexDays": 4,
+    "byForm": {
+      "8-K/A": 2,
+      "8-K": 126,
+      "DEF 14A": 1,
+      "10-K": 7,
+      "10-Q": 5
+    },
+    "affected": 118,
+    "window": "2026-08-17..2026-08-24"
+  }
+}

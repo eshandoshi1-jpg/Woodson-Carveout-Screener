@@ -1,0 +1,665 @@
+<title>Woodson Carveout Intelligence</title>
+<style>
+:root{
+  --nav:#0B2038; --nav-text:#E7EEF6; --nav-muted:#8FA3B8; --nav-field:#132D4A; --nav-field-bd:#22405f;
+  --bg:#F3F5F8; --surface:#FFFFFF; --sidebar:#FFFFFF; --group:#EEF2F7;
+  --border:#E2E6EC; --border-strong:#CFD6DF;
+  --text:#16202B; --text-secondary:#586675; --text-muted:#8A96A5;
+  --accent:#2E6FE0; --accent-soft:rgba(46,111,224,.10); --accent-line:rgba(46,111,224,.30);
+  --link:#2857C6;
+  --positive:#1E7A46; --warn:#9A6A1C; --warn-soft:rgba(154,106,28,.12); --negative:#A33232;
+  --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+  --pop:0 6px 24px rgba(16,24,40,.14);
+  --mono:"SF Mono","Cascadia Code",Consolas,monospace;
+  --sans:"Inter",-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --nav:#081420; --nav-text:#E7EEF6; --nav-muted:#7d90a6; --nav-field:#0E1E30; --nav-field-bd:#1d3651;
+  --bg:#0E1520; --surface:#151E29; --sidebar:#111A24; --group:#18222E;
+  --border:#26313E; --border-strong:#33414F;
+  --text:#E7ECF2; --text-secondary:#9BA7B4; --text-muted:#6C7887;
+  --accent:#4E8AF0; --accent-soft:rgba(78,138,240,.16); --accent-line:rgba(78,138,240,.34);
+  --link:#7AA0F0;
+  --positive:#4CAF7A; --warn:#D9A544; --warn-soft:rgba(217,165,68,.16); --negative:#D96A6A;
+  --shadow:0 1px 2px rgba(0,0,0,.3); --pop:0 8px 28px rgba(0,0,0,.5);
+}}
+:root[data-theme="dark"]{
+  --nav:#081420; --nav-text:#E7EEF6; --nav-muted:#7d90a6; --nav-field:#0E1E30; --nav-field-bd:#1d3651;
+  --bg:#0E1520; --surface:#151E29; --sidebar:#111A24; --group:#18222E;
+  --border:#26313E; --border-strong:#33414F;
+  --text:#E7ECF2; --text-secondary:#9BA7B4; --text-muted:#6C7887;
+  --accent:#4E8AF0; --accent-soft:rgba(78,138,240,.16); --accent-line:rgba(78,138,240,.34);
+  --link:#7AA0F0;
+  --positive:#4CAF7A; --warn:#D9A544; --warn-soft:rgba(217,165,68,.16); --negative:#D96A6A;
+  --shadow:0 1px 2px rgba(0,0,0,.3); --pop:0 8px 28px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1,"cv10" 1;}
+.tnum{font-variant-numeric:tabular-nums}
+a{color:var(--link);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.muted{color:var(--text-muted)} .sec{color:var(--text-secondary)}
+svg{display:block}
+
+/* ── shell ───────────────────────────────────────────── */
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.nav{height:52px;flex:none;display:flex;align-items:center;gap:16px;padding:0 16px;background:var(--nav);color:var(--nav-text);z-index:50}
+.brand{display:flex;align-items:center;gap:10px;user-select:none;cursor:pointer;min-width:210px}
+.brand .mk{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#2E6FE0,#5B96E0);display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px}
+.brand b{font-weight:650;letter-spacing:.02em;font-size:14px}
+.brand span{color:var(--nav-muted);font-size:11px;display:block;line-height:1;margin-top:2px}
+.gsearch{flex:1;max-width:640px;margin:0 auto;display:flex;align-items:center;gap:9px;height:34px;padding:0 12px;
+  background:var(--nav-field);border:1px solid var(--nav-field-bd);border-radius:8px;color:var(--nav-text)}
+.gsearch:focus-within{border-color:var(--accent)}
+.gsearch input{flex:1;border:none;background:transparent;color:var(--nav-text);font-size:14px;outline:none}
+.gsearch input::placeholder{color:var(--nav-muted)}
+.gsearch .kbd{color:var(--nav-muted);font-size:11px;border:1px solid var(--nav-field-bd);border-radius:4px;padding:1px 5px}
+.nav .right{display:flex;align-items:center;gap:12px;min-width:210px;justify-content:flex-end}
+.fresh{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--nav-muted)}
+.fresh .dot{width:6px;height:6px;border-radius:50%;background:var(--positive)}
+.fresh.stale{color:var(--warn)} .fresh.stale .dot{background:var(--warn)}
+.navbtn{width:30px;height:30px;display:grid;place-items:center;border-radius:6px;background:transparent;border:1px solid var(--nav-field-bd);color:var(--nav-muted)}
+.navbtn:hover{color:var(--nav-text);border-color:var(--accent)}
+.firm{width:30px;height:30px;border-radius:6px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+
+.body{flex:1;display:flex;min-height:0}
+.side{width:236px;flex:none;background:var(--sidebar);border-right:1px solid var(--border);overflow-y:auto;padding:10px 0}
+.side.collapsed{width:0;border:none;overflow:hidden}
+.side .grp-l{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);padding:14px 18px 6px}
+.side a{display:flex;align-items:center;gap:10px;padding:8px 18px;color:var(--text-secondary);font-size:13.5px;font-weight:500;border-left:2px solid transparent}
+.side a:hover{background:var(--accent-soft);text-decoration:none;color:var(--text)}
+.side a.on{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.side a .c{margin-left:auto;font-size:11px;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.side .foot{padding:14px 18px;margin-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted)}
+.work{flex:1;overflow-y:auto;min-width:0}
+.wrap{max-width:1360px;margin:0 auto;padding:20px 26px 70px}
+
+/* ── page head ───────────────────────────────────────── */
+.crumb{font-size:12px;color:var(--text-muted);margin-bottom:2px}
+.ptitle{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.ptitle h1{margin:0;font-size:26px;font-weight:650;letter-spacing:-.01em}
+.ptitle .rt{margin-left:auto;display:flex;gap:8px}
+h2,h3{margin:0;font-weight:650;letter-spacing:-.005em}
+
+/* ── pills / filters ─────────────────────────────────── */
+.pills{display:flex;flex-wrap:wrap;align-items:center;gap:9px;padding:10px 0 4px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px}
+.pill{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;background:var(--surface);border:1px solid var(--border);
+  border-radius:18px;font-size:12.5px;font-weight:600;color:var(--text-secondary)}
+.pill.on{color:var(--text);border-color:var(--accent-line)}
+.pill .tg{width:30px;height:16px;border-radius:99px;background:var(--border-strong);position:relative;transition:background .12s}
+.pill.on .tg{background:var(--accent)}
+.pill .tg::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .12s}
+.pill.on .tg::after{left:16px}
+.pill.sel{cursor:pointer}
+.pill.sel:hover{border-color:var(--border-strong)}
+.selwrap{position:relative}
+.pop{position:absolute;top:calc(100% + 6px);left:0;z-index:30;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;box-shadow:var(--pop);padding:8px;min-width:220px}
+.pop label{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;font-size:13px;cursor:pointer}
+.pop label:hover{background:var(--accent-soft)}
+.funnel{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-secondary)}
+.sortsel{margin-left:auto;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;border-radius:8px;padding:7px 11px;font-family:inherit}
+.activechips{display:flex;flex-wrap:wrap;gap:6px;margin:-6px 0 14px}
+.fchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:3px 8px}
+.fchip button{border:none;background:transparent;color:var(--accent);padding:0;line-height:1;font-size:14px}
+.clearall{font-size:12px;font-weight:600;color:var(--text-secondary);background:transparent;border:none;text-decoration:underline}
+
+/* ── cards / stats ───────────────────────────────────── */
+.statband{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;position:relative;box-shadow:var(--shadow)}
+.stat.link{cursor:pointer;transition:transform .1s,box-shadow .1s}
+.stat.link:hover{transform:translateY(-1px);box-shadow:var(--pop);border-color:var(--border-strong)}
+.stat .n{font-size:30px;font-weight:650;line-height:1.05;letter-spacing:-.02em}
+.stat .l{font-size:11.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--text-secondary);margin-top:7px}
+.stat .q{font-size:11.5px;color:var(--text-muted);margin-top:2px}
+@media(max-width:1000px){.statband{grid-template-columns:repeat(3,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border)}
+.panel-h h2{font-size:15px}
+.panel-h .sub{color:var(--text-muted);font-size:12px}
+.panel-h .link{margin-left:auto;font-size:13px;font-weight:500}
+.twocol{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:16px}
+@media(max-width:900px){.twocol{grid-template-columns:1fr}}
+.section-gap{margin-top:18px}
+
+/* ── grid ────────────────────────────────────────────── */
+.gridwrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text-muted);
+  text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody td{padding:0 12px;height:38px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+tr.grp td{background:var(--group);height:34px;font-weight:600;color:var(--text-secondary);cursor:pointer;
+  border-bottom:1px solid var(--border);border-top:1px solid var(--border)}
+tr.grp .gcar{display:inline-block;transform:rotate(0deg);transition:transform .12s;color:var(--text-muted);vertical-align:-3px}
+tr.grp .gcar.open{transform:rotate(90deg)}
+tr.grp .gcount{display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  font-size:11px;padding:0 8px;margin-left:8px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+tbody tr.row{cursor:pointer}
+tbody tr.row:hover{background:var(--accent-soft)}
+tbody tr.row.kbd{box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-soft)}
+.dealname{color:var(--link);font-weight:600}
+.tick{color:var(--text-muted);font-size:11.5px;margin-left:6px;font-family:var(--mono)}
+.chev{color:var(--text-muted)}
+.expandrow td{padding:0;background:var(--bg);border-bottom:1px solid var(--border)}
+.count-note{font-size:12px;color:var(--text-muted);padding:8px 2px 0}
+
+/* ── badges / chips ──────────────────────────────────── */
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;letter-spacing:.02em;white-space:nowrap}
+.b-t1{background:var(--accent);color:#fff}
+.b-t2{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.b-t3{background:var(--surface);color:var(--text-secondary);box-shadow:inset 0 0 0 1px var(--border-strong)}
+.b-watchlist,.b-drop{background:var(--group);color:var(--text-muted);box-shadow:inset 0 0 0 1px var(--border)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;padding:2px 8px;border-radius:5px;white-space:nowrap;line-height:1.5}
+.chip.hard{background:var(--accent-soft);color:var(--accent)}
+.chip.soft{background:var(--surface);color:var(--text-secondary);box-shadow:inset 0 0 0 1px var(--border)}
+.chip.flag{background:transparent;color:var(--text-muted);box-shadow:inset 0 0 0 1px var(--border);border-style:dashed}
+.chip .ext{opacity:.7} .chip .dated{color:var(--text-muted);font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.score{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.score .v{font-weight:650;font-variant-numeric:tabular-nums;min-width:16px;text-align:right}
+.bar{width:46px;height:6px;border-radius:99px;background:var(--border);overflow:hidden;flex:none}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.tag{font-size:11px;font-weight:600;color:var(--text-secondary);background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);border-radius:5px;padding:1px 7px}
+
+/* ── profile ─────────────────────────────────────────── */
+.profile{padding:18px 20px}
+.profile.inline{background:var(--bg)}
+.profile-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.profile-h h2{font-size:20px}
+.profile-h .cik{font-family:var(--mono);font-size:11.5px;color:var(--text-muted)}
+.pbody{display:grid;grid-template-columns:1.5fr 1fr;gap:24px;margin-top:14px}
+@media(max-width:820px){.pbody{grid-template-columns:1fr}}
+.divblock{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.divblock .dn{font-size:16px;font-weight:650}
+.divstats{display:flex;gap:22px;margin-top:10px}
+.divstats .k{font-size:11.5px;color:var(--text-secondary)} .divstats .v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.arch{display:inline-block;margin-top:12px;font-size:12px;color:var(--text-secondary);border-top:1px dashed var(--border);padding-top:9px}
+.divmore{margin-top:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);overflow:hidden}
+.divmore summary{cursor:pointer;padding:10px 14px;font-size:13px;font-weight:600;color:var(--accent);list-style:none}
+.divmore summary::-webkit-details-marker{display:none}
+.divmore summary::before{content:"\25B8";margin-right:8px;color:var(--text-muted)}
+.divmore[open] summary::before{content:"\25BE"}
+.segtable{width:100%;border-collapse:collapse;font-size:12.5px}
+.segtable th{font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);text-align:left;padding:6px 14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-weight:700}
+.segtable td{padding:6px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+.segtable tr.cand{background:var(--accent-soft)} .segtable tr.cand td{font-weight:600}
+.ctxnote{padding:11px 14px;font-size:13px;color:var(--text-secondary);line-height:1.55}
+.ctxnote b{color:var(--text)}
+.divmore .rd10k{display:inline-block;margin:0 14px 12px;font-size:13px;font-weight:600;color:var(--accent)}
+.mtag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px}
+.mtag-fit{background:rgba(30,122,70,.13);color:var(--positive)}
+.mtag-below{background:var(--group);color:var(--text-muted);box-shadow:inset 0 0 0 1px var(--border)}
+.mtag-above{background:var(--warn-soft);color:var(--warn)}
+.mtag-weak{background:rgba(163,50,50,.13);color:var(--negative)}
+.fdot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle}
+.fdot-fit{background:var(--positive)} .fdot-below{background:var(--text-muted)} .fdot-above{background:var(--warn)} .fdot-weak{background:var(--negative)} .fdot-unknown{background:var(--border-strong)}
+.fitlegend{padding:2px 14px 12px;font-size:11px;color:var(--text-muted);display:flex;gap:16px;flex-wrap:wrap}
+.fitlegend span{display:inline-flex;align-items:center;gap:5px}
+.why{margin:15px 0;font-size:14.5px;line-height:1.55}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin:16px 0 8px}
+.siglist{display:flex;flex-direction:column;gap:8px}
+.sigrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sigrow .src{font-size:12px;color:var(--text-secondary)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.contact-name{font-weight:600} .contact-title{font-size:13px;color:var(--text-secondary)}
+.cmail{display:flex;align-items:center;gap:8px;margin-top:8px;font-family:var(--mono);font-size:12px}
+.tooltip{border-bottom:1px dotted var(--text-muted);cursor:help}
+
+/* ── buttons ─────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:7px;font-size:13.5px;font-weight:500;border:1px solid transparent}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.06);text-decoration:none}
+.btn.ghost{background:var(--surface);color:var(--text);border-color:var(--border)}
+.btn.ghost:hover{border-color:var(--border-strong);text-decoration:none}
+.btn.sm{height:30px;padding:0 11px;font-size:13px}
+.iconbtn{width:26px;height:26px;display:grid;place-items:center;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-secondary)}
+.iconbtn:hover{color:var(--text);border-color:var(--border-strong)}
+
+/* ── outreach ────────────────────────────────────────── */
+.olayout{display:grid;grid-template-columns:1.4fr .9fr;gap:22px}
+@media(max-width:900px){.olayout{grid-template-columns:1fr}}
+.tierbadge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px}
+.tierA{background:var(--accent-soft);color:var(--accent)} .tierB{background:var(--warn-soft);color:var(--warn)}
+.tierC{background:var(--surface);color:var(--text-secondary);box-shadow:inset 0 0 0 1px var(--border)}
+.senderf{display:flex;flex-direction:column;gap:5px;margin:12px 0}
+.senderf input{height:34px;border:1px solid var(--border);background:var(--surface);border-radius:7px;padding:0 10px;color:var(--text);font-family:inherit;font-size:14px}
+.letter{background:var(--surface);border:1px solid var(--border);border-radius:9px}
+.letter .subj{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600}
+.letter .subj span{color:var(--text-muted);font-weight:400;margin-right:6px}
+.letter .lbody{padding:16px;white-space:pre-wrap;font-size:14px;line-height:1.6}
+.obtns{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.warnline{background:var(--warn-soft);color:var(--warn);border-radius:7px;padding:8px 12px;font-size:13px;margin-bottom:12px}
+
+/* misc */
+.empty{text-align:center;padding:52px 20px;color:var(--text-secondary)}
+.empty .big{font-size:15px;color:var(--text);margin-bottom:6px}
+.methodo{font-size:12.5px;color:var(--text-muted);line-height:1.6;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;max-width:82ch}
+.methodo b{color:var(--text-secondary);font-weight:600}
+.barchart{display:flex;flex-direction:column;gap:9px;padding:14px 18px}
+.barrow{display:grid;grid-template-columns:160px 1fr 34px;align-items:center;gap:10px;font-size:12px}
+.barrow .bt{height:15px;background:var(--accent);opacity:.62;border-radius:3px;min-width:2px}
+.barrow .bc{text-align:right;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.recent a{display:flex;align-items:center;gap:10px;padding:9px 18px;border-bottom:1px solid var(--border);color:var(--text)}
+.recent a:last-child{border-bottom:none}
+.recent a:hover{background:var(--accent-soft);text-decoration:none}
+.recent .rc{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.recent .rd{font-size:12px;color:var(--text-muted)}
+noscript{display:block;padding:40px;text-align:center}
+</style>
+
+<div id="app"></div>
+<noscript>This tool requires JavaScript.</noscript>
+
+<script>
+"use strict";
+const SNAP_SRC = __SNAPSHOT_SRC__;
+let META, COMPANIES;
+
+const SIG={
+  held_for_sale:{label:"Held for sale",hard:true},
+  exploring_alternatives:{label:"Exploring alternatives",hard:true},
+  activist_13d:{label:"Activist 13D",hard:true},
+  deleveraging_intent:{label:"Deleveraging",hard:false},
+  exec_departure:{label:"Exec departure",hard:false},
+  guidance_dividend_cut:{label:"Guidance / dividend cut",hard:false},
+  serial_divester:{label:"Serial divester",hard:false},
+};
+const SIG_ORDER=["held_for_sale","exploring_alternatives","activist_13d","deleveraging_intent","exec_departure","guidance_dividend_cut","serial_divester"];
+const TIER_ORDER=[1,2,3,"watchlist","drop"];
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtUsd=v=>v==null?"\u2014":v>=1e9?"$"+(v/1e9).toFixed(1)+"B":v>=1e6?"$"+Math.round(v/1e6)+"M":"$"+v.toLocaleString();
+const fmtPct=v=>v==null?"\u2014":v.toFixed(1)+"%";
+const fmtInt=v=>v==null?"\u2014":v.toLocaleString();
+const tierLabel=t=>t===1?"Tier 1":t===2?"Tier 2":t===3?"Tier 3":t==="watchlist"?"Watchlist":"Drop";
+const tierClass=t=>"b-"+(t===1?"t1":t===2?"t2":t===3?"t3":t);
+const slug=s=>String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");
+const idOf=c=>c.ticker?c.ticker:slug(c.company);
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmtDate=iso=>{if(!iso)return null;const d=new Date(iso+"T00:00:00");return MONTHS[d.getMonth()]+" "+d.getFullYear();};
+const DAY=864e5, NOW=Date.now();
+const ageDays=iso=>iso?(NOW-new Date(iso+"T00:00:00").getTime())/DAY:null;
+const isLive=sig=>sig.date==null?true:(ageDays(sig.date)<=365);
+
+const I={
+  sun:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+  search:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>',
+  ext:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M9 7h8v8"/></svg>',
+  chev:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>',
+  arr:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  copy:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+  funnel:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg>',
+  menu:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
+};
+
+let SENDER=localStorage.getItem("wci:sender")||"Joel Matthew";
+let CONTACTED=JSON.parse(localStorage.getItem("wci:contacted")||"{}");
+const saveContacted=()=>localStorage.setItem("wci:contacted",JSON.stringify(CONTACTED));
+function setTheme(m){localStorage.setItem("wci:theme",m);if(m==="system")document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme",m);}
+(function(){const m=localStorage.getItem("wci:theme")||"system";if(m!=="system")document.documentElement.setAttribute("data-theme",m);})();
+function cycleTheme(){const c=localStorage.getItem("wci:theme")||"system";setTheme(c==="system"?"light":c==="light"?"dark":"system");const b=$("#themebtn");if(b)b.innerHTML=(localStorage.getItem("wci:theme")==="dark")?I.moon:I.sun;}
+
+const BY_ID={};
+let N_T1,N_T2,N_LIVE,N_CONTACT,N_TARGETS,TIER_COUNTS;
+function initData(snap){
+  META=snap.meta; COMPANIES=snap.companies;
+  COMPANIES.forEach(c=>{
+    c._id=idOf(c);BY_ID[c._id]=c;
+    c._hay=[c.company,c.ticker,c.candidateDivision&&c.candidateDivision.name,c.contact&&c.contact.name,c.why].filter(Boolean).join(" ").toLowerCase();
+    c._live=c.signals.filter(isLive);c._hard=c._live.filter(s=>s.hard);
+  });
+  N_T1=COMPANIES.filter(c=>c.tier===1).length;
+  N_T2=COMPANIES.filter(c=>c.tier===2).length;
+  N_LIVE=COMPANIES.filter(c=>c._live.length).length;
+  N_CONTACT=COMPANIES.filter(c=>c.contact).length;
+  N_TARGETS=N_T1+N_T2;
+  TIER_COUNTS={};TIER_ORDER.forEach(t=>TIER_COUNTS[t]=COMPANIES.filter(c=>c.tier===t).length);
+}
+const strongest=c=>[...c._live].sort((a,b)=>(b.hard-a.hard)||(SIG_ORDER.indexOf(a.type)-SIG_ORDER.indexOf(b.type)))[0];
+
+/* ── router ─────────────────────────────────────────── */
+function parseHash(){const h=location.hash.replace(/^#\/?/,"");const [p,qs]=h.split("?");const parts=p.split("/").filter(Boolean);
+  return {view:parts[0]||"overview",id:parts[1]?decodeURIComponent(parts[1]):null,q:new URLSearchParams(qs||"")};}
+const go=h=>location.hash=h;
+window.addEventListener("hashchange",render);
+
+/* ── shell (built once) ─────────────────────────────── */
+function buildShell(){
+  const cur=localStorage.getItem("wci:theme")||"system";
+  const gen=META.generatedAt?new Date(META.generatedAt):null;
+  const stale=gen?(NOW-gen.getTime())>36*3600*1000:false;
+  const d=gen?MONTHS[gen.getMonth()]+" "+gen.getDate()+", "+gen.getFullYear():"unknown";
+  $("#app").innerHTML=`
+   <div class="nav">
+     <div class="brand" onclick="go('#/overview')">
+       <div class="mk">W</div><div><b>WOODSON</b><span>Carveout Intelligence</span></div>
+     </div>
+     <div class="gsearch">${I.search}<input id="gq" placeholder="Search companies, divisions, contacts\u2026" autocomplete="off"><span class="kbd">/</span></div>
+     <div class="right">
+       <span class="fresh ${stale?"stale":""}" title="Snapshot date"><span class="dot"></span>${d}</span>
+       <button class="navbtn" id="themebtn" title="Theme (t)" onclick="cycleTheme()">${cur==="dark"?I.moon:I.sun}</button>
+       <div class="firm" title="Woodson Equity">WE</div>
+     </div>
+   </div>
+   <div class="body">
+     <aside class="side" id="side">
+       <div class="grp-l">Dashboards</div>
+       <a data-nav="overview" href="#/overview">Overview</a>
+       <div class="grp-l">Pipeline</div>
+       <a data-nav="pipeline" href="#/pipeline">Carveout Targets <span class="c">${COMPANIES.length.toLocaleString()}</span></a>
+       <a data-nav="outreach" href="#/outreach">Outreach Queue <span class="c">${N_TARGETS}</span></a>
+       <div class="grp-l">Saved Views</div>
+       <a href="#/pipeline?tier=1">Tier 1 targets <span class="c">${N_T1}</span></a>
+       <a href="#/pipeline?tier=1,2">All targets <span class="c">${N_TARGETS}</span></a>
+       <a href="#/pipeline?signal=held_for_sale">Held for sale <span class="c">${COMPANIES.filter(c=>c._live.some(s=>s.type==="held_for_sale")).length}</span></a>
+       <a href="#/pipeline?signal=exploring_alternatives">Exploring alternatives <span class="c">${COMPANIES.filter(c=>c._live.some(s=>s.type==="exploring_alternatives")).length}</span></a>
+       <a href="#/pipeline?signal=activist_13d">Activist 13D <span class="c">${COMPANIES.filter(c=>c._live.some(s=>s.type==="activist_13d")).length}</span></a>
+       <div class="foot">Woodson Equity &middot; ${fmtInt(META.universeScanned)} scanned<br>${fmtInt(META.secVerified)} SEC-verified</div>
+     </aside>
+     <div class="work"><div class="wrap" id="view"></div></div>
+   </div>`;
+  const gq=$("#gq");
+  gq.addEventListener("input",e=>{const v=e.target.value;const r=parseHash();
+    if(r.view!=="pipeline"){EXP=EXP||stateFromQuery(new URLSearchParams());EXP.query=v;go("#/pipeline");}
+    else{EXP.query=v;syncHash();refreshPipeline();}});
+}
+
+/* ── render dispatch ────────────────────────────────── */
+function render(){
+  if(!$("#app .nav"))buildShell();
+  const r=parseHash();
+  document.querySelectorAll(".side a[data-nav]").forEach(a=>a.classList.toggle("on",a.dataset.nav===r.view||(r.view==="company"&&a.dataset.nav==="pipeline")));
+  const v=$("#view");
+  if(r.view==="pipeline")renderPipeline(v,r.q);
+  else if(r.view==="company")renderCompany(v,r.id);
+  else if(r.view==="outreach")r.id?renderOutreachOne(v,r.id):renderOutreachList(v);
+  else renderOverview(v);
+  if(r.view!=="pipeline"){const g=$("#gq");if(g)g.value="";}
+  $(".work").scrollTop=0;
+}
+
+/* ── shared cells ───────────────────────────────────── */
+const scoreCell=s=>`<span class="score"><span class="v tnum">${s}</span><span class="bar"><i style="width:${Math.min(100,s/20*100)}%"></i></span></span>`;
+const tierBadge=t=>`<span class="badge ${tierClass(t)}">${tierLabel(t)}</span>`;
+function sigChip(sig,withLink){
+  const m=SIG[sig.type]||{label:sig.type,hard:false};const cls=sig.filing?(m.hard?"hard":"soft"):"flag";
+  const dated=sig.date&&ageDays(sig.date)>365?` <span class="dated">\u00b7 ${fmtDate(sig.date)}</span>`:"";
+  if(withLink&&sig.filing)return `<a class="chip ${cls}" href="${esc(sig.filing.url)}" target="_blank" rel="noopener">${esc(m.label)}${dated} <span class="ext">${I.ext}</span></a>`;
+  if(!sig.filing)return `<span class="chip flag" title="Model-flagged \u2014 no filing link">${esc(m.label)} \u00b7 model-flagged</span>`;
+  return `<span class="chip ${cls}">${esc(m.label)}${dated}</span>`;
+}
+
+/* ── OVERVIEW ───────────────────────────────────────── */
+function renderOverview(v){
+  const top=COMPANIES.filter(c=>c.tier===1).sort((a,b)=>b.score-a.score);
+  const counts=SIG_ORDER.map(t=>({t,n:COMPANIES.filter(c=>c._live.some(s=>s.type===t)).length}));
+  const maxc=Math.max(...counts.map(c=>c.n),1);
+  const recent=COMPANIES.flatMap(c=>c._hard.filter(s=>s.date).map(s=>({c,s}))).sort((a,b)=>new Date(b.s.date)-new Date(a.s.date)).slice(0,7);
+  v.innerHTML=`
+    <div class="crumb">Dashboards</div>
+    <div class="ptitle"><h1>Overview</h1></div>
+    <div class="statband">
+      ${statCard(fmtInt(META.universeScanned),"Universe scanned","the full corporate list",null)}
+      ${statCard(fmtInt(META.secVerified),"SEC-verified","identity-confirmed",null)}
+      ${statCard(N_T1,"Tier 1 targets","highest conviction","#/pipeline?tier=1")}
+      ${statCard(N_T2,"Tier 2 prospects","next tier","#/pipeline?tier=2")}
+      ${statCard(fmtInt(N_LIVE),"Live signals","timing window open","#/pipeline?signal=held_for_sale,exploring_alternatives,activist_13d")}
+      ${statCard(fmtInt(N_CONTACT),"Direct contacts","Corp Dev / CFO","#/pipeline?contact=1")}
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h2>Top targets</h2><span class="sub">Tier 1, by propensity</span><a class="link" href="#/pipeline?tier=1,2">Open pipeline ${I.arr}</a></div>
+      <div class="gridwrap"><table><thead><tr><th>Company</th><th>Candidate division</th><th class="num">Div. rev.</th><th class="num">Score</th><th>Strongest signal</th><th>Contact</th><th></th></tr></thead>
+      <tbody>${top.map(c=>pipeRow(c)).join("")}</tbody></table></div>
+    </div>
+    <div class="twocol">
+      <div class="panel"><div class="panel-h"><h2>Companies by signal type</h2></div>
+        <div class="barchart">${counts.map(c=>`<div class="barrow"><span>${esc(SIG[c.t].label)}</span><span class="bt" style="width:${c.n/maxc*100}%"></span><span class="bc">${c.n}</span></div>`).join("")}</div></div>
+      <div class="panel"><div class="panel-h"><h2>Most recent hard signals</h2></div>
+        <div class="recent">${recent.length?recent.map(({c,s})=>`<a href="#/company/${c._id}"><span class="rc">${esc(c.company)}</span>${sigChip(s,false)}<span class="rd">${fmtDate(s.date)}</span></a>`).join(""):'<div class="empty sec">No dated hard signals.</div>'}</div></div>
+    </div>
+    <div class="methodo"><b>Propensity score (0\u201320)</b> measures whether a company is the <i>type</i> to divest, from filing signals across 10-K/10-Q/8-K/SC&nbsp;13D. <b>A live signal</b> indicates <i>timing</i> \u2014 a dated, recent (within 12 months) filing event that a divestiture window may be open now. Two archetypes drive the candidate division: a <b>strategic pruner</b> sells its sub-scale, underperforming orphan; a <b>balance-sheet-forced seller</b> sells its most marketable division to cut debt. Every signal links to its source SEC filing; no claim in this tool or its outreach is generated without one.</div>`;
+}
+const statCard=(n,l,q,href)=>`<div class="${href?"stat link":"stat"}" ${href?`onclick="go('${href}')"`:""}><div class="n tnum">${n}</div><div class="l">${l}</div><div class="q">${q}</div></div>`;
+
+/* pipeline row (also used on overview) */
+function pipeRow(c){const s=strongest(c);const d=c.candidateDivision;return `<tr class="row" data-id="${c._id}" onclick="toggleExpand('${c._id}')">
+  <td><span class="dealname">${esc(c.company)}</span>${c.ticker?`<span class="tick">${esc(c.ticker)}</span>`:""}</td>
+  <td>${d?esc(d.name):'<span class="muted">\u2014</span>'}</td>
+  <td class="num">${d?fmtUsd(d.revenueUsd):"\u2014"}</td>
+  <td class="num">${scoreCell(c.score)}</td>
+  <td>${s?sigChip(s,false):'<span class="muted">\u2014</span>'}</td>
+  <td class="sec">${c.contact?esc(c.contact.name):'<span class="muted">\u2014</span>'}</td>
+  <td class="num chev">${I.chev}</td></tr>`;}
+
+/* ── PIPELINE (grouped grid) ────────────────────────── */
+let EXP=null, EXP_RESULTS=[];
+const COLLAPSED=new Set(["watchlist","drop"]);
+const SIZE_BANDS={lt50:["< $50M",v=>v!=null&&v<50e6],"50-150":["$50\u2013150M",v=>v!=null&&v>=50e6&&v<150e6],"150-500":["$150\u2013500M",v=>v!=null&&v>=150e6&&v<500e6],gt500:["> $500M",v=>v!=null&&v>=500e6],undisc:["Undisclosed",v=>v==null]};
+function stateFromQuery(q){return {query:q.get("q")||"",tier:(q.get("tier")||"").split(",").filter(Boolean),
+  signal:(q.get("signal")||"").split(",").filter(Boolean),contact:q.get("contact")==="1",mandate:q.get("mandate")==="1",
+  size:(q.get("size")||"").split(",").filter(Boolean),sort:q.get("sort")||"score"};}
+function queryFromState(s){const q=new URLSearchParams();if(s.query)q.set("q",s.query);if(s.tier.length)q.set("tier",s.tier.join(","));
+  if(s.signal.length)q.set("signal",s.signal.join(","));if(s.contact)q.set("contact","1");if(s.mandate)q.set("mandate","1");
+  if(s.size.length)q.set("size",s.size.join(","));if(s.sort!=="score")q.set("sort",s.sort);return q.toString();}
+function syncHash(){const qs=queryFromState(EXP);history.replaceState(null,"",qs?`#/pipeline?${qs}`:"#/pipeline");}
+function applyFilters(){const s=EXP;const toks=s.query.toLowerCase().split(/\s+/).filter(Boolean);
+  let res=COMPANIES.filter(c=>{
+    if(toks.length&&!toks.every(t=>c._hay.includes(t)))return false;
+    if(s.tier.length&&!s.tier.includes(String(c.tier)))return false;
+    if(s.signal.length&&!s.signal.some(t=>c._live.some(x=>x.type===t)))return false;
+    if(s.contact&&!c.contact)return false;
+    if(s.mandate&&!c.mandateFit)return false;
+    if(s.size.length){const rv=c.candidateDivision&&c.candidateDivision.revenueUsd;if(!s.size.some(b=>SIZE_BANDS[b][1](rv)))return false;}
+    return true;});
+  const cmp={score:(a,b)=>b.score-a.score,company:(a,b)=>a.company.localeCompare(b.company),
+    divrev:(a,b)=>((b.candidateDivision&&b.candidateDivision.revenueUsd)||0)-((a.candidateDivision&&a.candidateDivision.revenueUsd)||0)};
+  res.sort(cmp[s.sort]||cmp.score);return res;}
+function renderPipeline(v,q){
+  EXP=stateFromQuery(q);
+  const g=$("#gq");if(g&&document.activeElement!==g)g.value=EXP.query;
+  v.innerHTML=`
+    <div class="crumb">Pipeline</div>
+    <div class="ptitle"><h1>Carveout Targets</h1><div class="rt"><span class="count-note" id="rcount"></span></div></div>
+    <div class="pills" id="pills">
+      <span class="funnel">${I.funnel}</span>
+      ${["1","2","3","watchlist","drop"].map(t=>`<button class="pill sel ${EXP.tier.includes(t)?"on":""}" data-tier="${t}">${tierLabel(t==="watchlist"?"watchlist":t==="drop"?"drop":Number(t))} <span class="tg"></span></button>`).join("")}
+      <div class="selwrap"><button class="pill sel ${EXP.signal.length?"on":""}" id="sigbtn">Signals${EXP.signal.length?" \u00b7 "+EXP.signal.length:""} <span class="tg"></span></button>
+        <div class="pop" id="sigpop" hidden>${SIG_ORDER.map(t=>`<label><input type="checkbox" data-sig="${t}" ${EXP.signal.includes(t)?"checked":""}>${SIG[t].label}</label>`).join("")}</div></div>
+      <button class="pill sel ${EXP.contact?"on":""}" data-tog="contact">Has contact <span class="tg"></span></button>
+      <button class="pill sel ${EXP.mandate?"on":""}" data-tog="mandate">Mandate fit <span class="tg"></span></button>
+      <div class="selwrap"><button class="pill sel ${EXP.size.length?"on":""}" id="sizebtn">Div. size${EXP.size.length?" \u00b7 "+EXP.size.length:""} <span class="tg"></span></button>
+        <div class="pop" id="sizepop" hidden>${Object.entries(SIZE_BANDS).map(([k,[l]])=>`<label><input type="checkbox" data-size="${k}" ${EXP.size.includes(k)?"checked":""}>${l}</label>`).join("")}</div></div>
+      <select class="sortsel" id="sort">${[["score","Sort: Score"],["company","Company A\u2013Z"],["divrev","Division revenue"]].map(([k,l])=>`<option value="${k}" ${EXP.sort===k?"selected":""}>${l}</option>`).join("")}</select>
+    </div>
+    <div class="activechips" id="active"></div>
+    <div class="panel"><div class="gridwrap"><table>
+      <thead><tr><th>Company</th><th>Candidate division</th><th class="num">Div. rev.</th><th class="num">Margin</th><th class="num">% parent</th><th class="num">Score</th><th>Strongest signal</th><th>Contact</th><th></th></tr></thead>
+      <tbody id="rows"></tbody></table></div></div>`;
+  wirePills();refreshPipeline();
+}
+function refreshPipeline(){
+  const res=applyFilters();EXP_RESULTS=res;
+  const rc=$("#rcount");if(rc)rc.textContent=`${res.length.toLocaleString()} of ${COMPANIES.length.toLocaleString()} companies`;
+  renderActiveChips();
+  const rows=$("#rows");if(!rows)return;
+  if(!res.length){rows.innerHTML=`<tr><td colspan="9"><div class="empty"><div class="big">No companies match.</div><button class="btn ghost sm" onclick="clearAll()">Clear filters</button></div></td></tr>`;return;}
+  const groups={};TIER_ORDER.forEach(t=>groups[t]=[]);res.forEach(c=>groups[c.tier].push(c));
+  let html="";
+  TIER_ORDER.forEach(t=>{const gg=groups[t];if(!gg.length)return;const col=COLLAPSED.has(String(t));
+    html+=`<tr class="grp" onclick="toggleGroup('${t}')"><td colspan="9"><span class="gcar ${col?"":"open"}">${I.chev}</span>${tierLabel(t)}<span class="gcount">${gg.length}</span></td></tr>`;
+    if(!col)html+=gg.map(c=>gridRow(c)).join("");});
+  rows.innerHTML=html;
+}
+function gridRow(c){const s=strongest(c);const d=c.candidateDivision;return `<tr class="row" data-id="${c._id}" onclick="toggleExpand('${c._id}')">
+  <td><span class="dealname">${esc(c.company)}</span>${c.ticker?`<span class="tick">${esc(c.ticker)}</span>`:""}</td>
+  <td>${d?esc(d.name):'<span class="muted">\u2014</span>'}</td>
+  <td class="num">${d?fmtUsd(d.revenueUsd):"\u2014"}</td>
+  <td class="num">${d?fmtPct(d.operatingMarginPct):"\u2014"}</td>
+  <td class="num">${d&&d.pctOfParentRevenue!=null?Math.round(d.pctOfParentRevenue)+"%":"\u2014"}</td>
+  <td class="num">${scoreCell(c.score)}</td>
+  <td>${s?sigChip(s,false):'<span class="muted">\u2014</span>'}</td>
+  <td class="sec">${c.contact?esc(c.contact.name):'<span class="muted">\u2014</span>'}</td>
+  <td class="num chev">${I.chev}</td></tr>`;}
+function toggleGroup(t){COLLAPSED.has(String(t))?COLLAPSED.delete(String(t)):COLLAPSED.add(String(t));refreshPipeline();}
+function toggleExpand(id){const tr=document.querySelector(`tr[data-id="${id}"]`);if(!tr)return;
+  const nx=tr.nextElementSibling;if(nx&&nx.classList.contains("expandrow")){nx.remove();return;}
+  document.querySelectorAll(".expandrow").forEach(e=>e.remove());
+  const r=document.createElement("tr");r.className="expandrow";r.innerHTML=`<td colspan="9">${profileHtml(BY_ID[id],true)}</td>`;tr.after(r);}
+function wirePills(){
+  $("#pills").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+    if(b.dataset.tier!=null){const t=b.dataset.tier;EXP.tier.includes(t)?EXP.tier=EXP.tier.filter(x=>x!==t):EXP.tier.push(t);commit();}
+    else if(b.dataset.tog){EXP[b.dataset.tog]=!EXP[b.dataset.tog];commit();}});
+  popover("#sigbtn","#sigpop");popover("#sizebtn","#sizepop");
+  $("#sigpop").addEventListener("change",e=>{const t=e.target.dataset.sig;e.target.checked?EXP.signal.push(t):EXP.signal=EXP.signal.filter(x=>x!==t);commit();});
+  $("#sizepop").addEventListener("change",e=>{const b=e.target.dataset.size;e.target.checked?EXP.size.push(b):EXP.size=EXP.size.filter(x=>x!==b);commit();});
+  $("#sort").addEventListener("change",e=>{EXP.sort=e.target.value;commit();});
+}
+function commit(){syncHash();refreshPipeline();syncPills();}
+function syncPills(){document.querySelectorAll("#pills [data-tier]").forEach(b=>b.classList.toggle("on",EXP.tier.includes(b.dataset.tier)));
+  document.querySelectorAll("#pills [data-tog]").forEach(b=>b.classList.toggle("on",EXP[b.dataset.tog]));
+  const sb=$("#sigbtn");if(sb){sb.classList.toggle("on",EXP.signal.length>0);sb.firstChild.textContent="Signals"+(EXP.signal.length?" \u00b7 "+EXP.signal.length+" ":" ");}
+  const zb=$("#sizebtn");if(zb){zb.classList.toggle("on",EXP.size.length>0);zb.firstChild.textContent="Div. size"+(EXP.size.length?" \u00b7 "+EXP.size.length+" ":" ");}}
+function renderActiveChips(){const el=$("#active");if(!el)return;const cs=[];let n=0;
+  const add=(label,fn)=>{const id="fc"+(n++);cs.push([`<span class="fchip">${esc(label)}<button data-x="${id}">\u00d7</button></span>`,id,fn]);};
+  EXP.tier.forEach(t=>add(tierLabel(t==="watchlist"||t==="drop"?t:Number(t)),()=>{EXP.tier=EXP.tier.filter(x=>x!==t);commit();}));
+  EXP.signal.forEach(t=>add(SIG[t].label,()=>{EXP.signal=EXP.signal.filter(x=>x!==t);commit();}));
+  if(EXP.contact)add("Has contact",()=>{EXP.contact=false;commit();});
+  if(EXP.mandate)add("Mandate fit",()=>{EXP.mandate=false;commit();});
+  EXP.size.forEach(b=>add(SIZE_BANDS[b][0],()=>{EXP.size=EXP.size.filter(x=>x!==b);commit();}));
+  el.innerHTML=cs.length?cs.map(c=>c[0]).join("")+`<button class="clearall" id="clrall">Clear all</button>`:"";
+  cs.forEach(c=>{const b=el.querySelector(`[data-x="${c[1]}"]`);if(b)b.onclick=c[2];});
+  const ca=$("#clrall");if(ca)ca.onclick=clearAll;}
+function clearAll(){const sort=EXP.sort;EXP={query:"",tier:[],signal:[],contact:false,mandate:false,size:[],sort};const g=$("#gq");if(g)g.value="";commit();}
+function popover(btn,pop){const b=$(btn),p=$(pop);if(!b)return;
+  b.addEventListener("click",e=>{if(e.target.closest("input"))return;e.stopPropagation();const open=!p.hidden;document.querySelectorAll(".pop").forEach(x=>x.hidden=true);p.hidden=open;});
+  document.addEventListener("click",e=>{if(!p.contains(e.target)&&!b.contains(e.target))p.hidden=true;});}
+
+/* ── PROFILE ────────────────────────────────────────── */
+function mtag(m){
+  if(!m||m.fit==="unknown")return "";
+  const L={fit:["Fits Woodson's mandate","fit"],below:["Below Woodson's size","below"],above:["Above size \u00b7 >$300M deal","above"],weak:["Right size \u00b7 below $6M EBITDA","weak"]};
+  const [label,cls]=L[m.fit];const eb=m.ebitdaEstUsd!=null?" \u00b7 ~"+fmtUsd(m.ebitdaEstUsd)+" EBITDA":"";
+  return `<span class="mtag mtag-${cls}" title="Woodson: revenue >$75M, EBITDA >$6M, deal up to $300M${eb}">${label}</span>`;
+}
+function segFitDot(m){const f=(m&&m.fit)||"unknown";
+  const t={fit:"Fits Woodson's size",below:"Below size",above:"Above size (>$300M)",weak:"Right size, below $6M EBITDA",unknown:"Size unknown"};
+  return `<span class="fdot fdot-${f}" title="${t[f]}"></span>`;}
+function divContext(c){
+  const segs=c.segments||[];if(segs.length<2)return "";
+  const rows=segs.map(s=>`<tr class="${s.isCandidate?"cand":""}"><td>${esc(s.name)}${s.isCatchall?' <span class="muted">(other)</span>':""}${s.isCandidate?' <span class="tag">candidate</span>':""}</td><td class="num">${fmtUsd(s.revenueUsd)}</td><td class="num">${fmtPct(s.marginPct)}</td><td class="num">${s.pctOfParent!=null?Math.round(s.pctOfParent)+"%":"\u2014"}</td><td>${segFitDot(s.mandate)}</td></tr>`).join("");
+  const cand=c.candidateDivision&&c.candidateDivision.name;
+  let tenk="";
+  if(c.tenKUrl){const frag=cand?"#:~:text="+encodeURIComponent(cand).replace(/-/g,"%2D"):"";
+    tenk=`<a class="rd10k" target="_blank" rel="noopener" href="${esc(c.tenKUrl)}${frag}">${cand?"Read this division in the latest 10-K":"Open the latest 10-K"} ${I.ext}</a>`;}
+  return `<details class="divmore"><summary>All ${segs.length} divisions in context, vs Woodson's size box</summary>
+    <table class="segtable"><thead><tr><th>Division</th><th class="num">Revenue</th><th class="num">Op. margin</th><th class="num">% parent</th><th>Fit</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="fitlegend"><span><span class="fdot fdot-fit"></span>Fits Woodson</span><span><span class="fdot fdot-below"></span>Below size</span><span><span class="fdot fdot-above"></span>Above size</span><span><span class="fdot fdot-weak"></span>Below EBITDA</span></div>
+    <div class="ctxnote">${divRationale(c)}</div>${tenk}</details>`;
+}
+function divRationale(c){
+  const d=c.candidateDivision;
+  if(!d)return "This company reports the divisions above; none stands out as a clean carveout on the current data.";
+  if(c.archetype==="forced_seller")return `The parent has signalled a <b>deleveraging sale</b>, so the most <b>marketable</b> unit is the likely divestiture \u2014 <b>${esc(d.name)}</b> stands out on margin and scale among the divisions above, not on weakness.`;
+  const mg=d.operatingMarginPct,sh=d.pctOfParentRevenue;
+  if(mg!=null&&mg<0)return `<b>${esc(d.name)}</b> is the portfolio's <b>underperformer</b> (${fmtPct(mg)} margin)${sh!=null?` at ${Math.round(sh)}% of the parent`:""} \u2014 the natural prune among the divisions above.`;
+  if(sh!=null&&sh<15)return `<b>${esc(d.name)}</b> is <b>sub-scale</b> at ${Math.round(sh)}% of the parent \u2014 small and non-core relative to the rest of the portfolio.`;
+  return `<b>${esc(d.name)}</b> is the lowest-fit division relative to the parent's core, on the segment economics above.`;
+}
+function profileHtml(c,inline){
+  const d=c.candidateDivision,con=c.contact,cd=CONTACTED[c._id];
+  const arch=c.archetype==="pruner"?"Strategic pruner":c.archetype==="forced_seller"?"Balance-sheet-forced seller":null;
+  const tip=c.archetype==="pruner"?"Sells its sub-scale, underperforming orphan.":"Sells its most marketable division to reduce debt.";
+  const sigs=c.signals.length?c.signals.map(s=>`<div class="sigrow">${sigChip(s,true)}${s.filing?`<span class="src">${esc(s.filing.form||"filing")}${s.filing.date?" \u00b7 "+fmtDate(s.filing.date):""}</span>`:'<span class="src muted">no filing link</span>'}</div>`).join(""):'<span class="muted">No signals flagged.</span>';
+  const filings=[...new Map(c.signals.filter(s=>s.filing).map(s=>[s.filing.url,s.filing])).values()];
+  return `<div class="profile ${inline?"inline":""}">
+    <div class="profile-h"><h2>${esc(c.company)}</h2>${c.ticker?`<span class="tick">${esc(c.ticker)}</span>`:""}${c.cik?`<span class="cik">CIK ${esc(c.cik)}</span>`:""}${tierBadge(c.tier)}${scoreCell(c.score)}${c.mandateFit?'<span class="tag">Mandate fit</span>':""}
+      <a class="btn primary sm" style="margin-left:auto" href="#/outreach/${c._id}">Draft outreach ${I.arr}</a></div>
+    <div class="pbody">
+      <div>
+        ${d?`<div class="divblock"><div class="dn">${esc(d.name)}</div><div class="divstats">
+          <div><div class="k">Revenue</div><div class="v">${fmtUsd(d.revenueUsd)}</div></div>
+          <div><div class="k">Op. margin</div><div class="v">${fmtPct(d.operatingMarginPct)}</div></div>
+          <div><div class="k">% of parent</div><div class="v">${d.pctOfParentRevenue==null?"\u2014":Math.round(d.pctOfParentRevenue)+"%"}</div></div></div>
+          ${d.mandate?`<div style="margin-top:11px">${mtag(d.mandate)}</div>`:""}
+          ${arch?`<span class="arch"><span class="tooltip" title="${tip}">${arch}</span></span>`:""}</div>`:`<div class="divblock muted">No candidate division named \u2014 insufficient reportable-segment data.</div>`}
+        ${divContext(c)}
+        <div class="why">${esc(c.why)}</div>
+        <div class="lbl">Signals & evidence</div><div class="siglist">${sigs}</div>
+      </div>
+      <div>
+        <div class="lbl" style="margin-top:0">Contact</div>
+        ${con?`<div class="card"><div class="contact-name">${esc(con.name||"")}</div>
+          <div class="contact-title">${esc(con.title||"")} <span class="tag">${con.function==="corp_dev"?"Corp Dev":"CFO"}</span></div>
+          <div class="cmail"><a href="mailto:${esc(con.email)}">${esc(con.email)}</a><button class="iconbtn" title="Copy" onclick="copyText('${esc(con.email)}',this)">${I.copy}</button></div>
+          ${cd?`<div class="sec" style="margin-top:8px;font-size:12px">Contacted ${fmtDate(cd.contactedAt.slice(0,10))||cd.contactedAt.slice(0,10)}</div>`:""}</div>`:'<div class="card muted">No verified contact in snapshot.</div>'}
+        <div class="lbl">Sources</div><div class="chips">${(c.sources||[]).map(s=>`<span class="tag">${s==="fortune1000"?"Fortune 1000":s==="forbes"?"Forbes":esc(s)}</span>`).join("")||'<span class="muted">\u2014</span>'}</div>
+        ${filings.length?`<div class="lbl">Filings</div><div class="siglist">${filings.map(f=>`<a class="chip soft" href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.form||"Filing")}${f.date?" \u00b7 "+fmtDate(f.date):""} <span class="ext">${I.ext}</span></a>`).join("")}</div>`:""}
+      </div></div></div>`;
+}
+function renderCompany(v,id){const c=BY_ID[id];
+  if(!c){v.innerHTML=`<div class="empty"><div class="big">Company not found.</div><a href="#/pipeline">Back to pipeline</a></div>`;return;}
+  v.innerHTML=`<div class="crumb"><a href="#/pipeline">Pipeline</a> / ${esc(c.company)}</div><div class="panel section-gap">${profileHtml(c,false)}</div>`;}
+
+/* ── OUTREACH ───────────────────────────────────────── */
+function renderOutreachList(v){
+  const t=COMPANIES.filter(c=>c.tier===1||c.tier===2).sort((a,b)=>b.score-a.score).sort((a,b)=>(!!CONTACTED[a._id])-(!!CONTACTED[b._id]));
+  const notyet=t.filter(c=>!CONTACTED[c._id]).length;
+  v.innerHTML=`<div class="crumb">Outreach</div><div class="ptitle"><h1>Outreach Queue</h1><div class="rt"><span class="count-note">${t.length} targets \u00b7 ${notyet} not yet contacted</span></div></div>
+    <div class="panel"><div class="gridwrap"><table><thead><tr><th>Company</th><th>Tier</th><th>Contact</th><th>Evidence</th><th>Status</th><th></th></tr></thead>
+    <tbody>${t.map(c=>{const cd=CONTACTED[c._id];const et=c.outreach.evidenceTier;return `<tr class="row" onclick="go('#/outreach/${c._id}')">
+      <td><span class="dealname">${esc(c.company)}</span>${c.ticker?`<span class="tick">${esc(c.ticker)}</span>`:""}</td>
+      <td>${tierBadge(c.tier)}</td><td class="sec">${c.contact?esc(c.contact.name):'<span class="muted">No contact</span>'}</td>
+      <td><span class="tierbadge tier${et}">${et==="A"?"Filed disclosure":et==="B"?"Model analysis":"Generic"}</span></td>
+      <td class="sec">${cd?`Contacted ${fmtDate(cd.contactedAt.slice(0,10))}`:'<span class="muted">Not contacted</span>'}</td>
+      <td class="num"><span class="dealname">Draft ${I.arr}</span></td></tr>`;}).join("")}</tbody></table></div></div>`;
+}
+function renderOutreachOne(v,id){const c=BY_ID[id];if(!c){v.innerHTML=`<div class="empty"><div class="big">Not found.</div></div>`;return;}
+  const et=c.outreach.evidenceTier,cd=CONTACTED[c._id];const hardNoLink=c.signals.some(s=>s.hard&&!s.filing);
+  const body=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);
+  v.innerHTML=`<div class="crumb"><a href="#/outreach">Outreach Queue</a> / ${esc(c.company)}</div>
+    <div class="ptitle"><h1 style="font-size:22px">${esc(c.company)}</h1><div class="rt sec" style="align-self:center">${c.contact?esc(c.contact.name)+" \u00b7 "+esc(c.contact.title||""):"No contact on file"}</div></div>
+    <div class="olayout"><div>
+      <span class="tierbadge tier${et}">Evidence: ${et==="A"?"filed disclosure":et==="B"?"model analysis":"none cited \u2014 generic line"}</span>
+      ${hardNoLink?`<div class="warnline">Hard signal present but no filing link in snapshot \u2014 verify before sending.</div>`:""}
+      <div class="senderf"><label class="lbl" style="margin:0">Sender name</label><input id="sender" value="${esc(SENDER)}" placeholder="Your name \u2014 appears in the signature"></div>
+      <div class="letter"><div class="subj"><span>Subject:</span>${esc(c.outreach.subject)}</div><div class="lbody" id="ebody">${esc(body)}</div></div>
+      <div class="obtns"><button class="btn ghost" id="cs">${I.copy} Copy subject</button><button class="btn primary" id="cb">${I.copy} Copy email</button>
+        <button class="btn ghost" id="mk">${cd?"\u2713 Contacted "+fmtDate(cd.contactedAt.slice(0,10)):"Mark as contacted"}</button></div>
+    </div><div>
+      <div class="lbl" style="margin-top:0">What this email claims, and where it's from</div>
+      <div class="siglist">${c.signals.length?c.signals.map(s=>`<div class="sigrow">${sigChip(s,true)}${s.filing?`<span class="src">${esc(s.filing.form||"")}${s.filing.date?" \u00b7 "+fmtDate(s.filing.date):""}</span>`:'<span class="src muted">no link</span>'}</div>`).join(""):'<span class="muted">Generic outreach; no filing-level signal.</span>'}</div>
+      ${c.contact?`<div class="lbl">Recipient</div><div class="card"><div class="contact-name">${esc(c.contact.name)}</div><div class="contact-title">${esc(c.contact.title||"")} <span class="tag">${c.contact.function==="corp_dev"?"Corp Dev":"CFO"}</span></div><div class="cmail"><a href="mailto:${esc(c.contact.email)}">${esc(c.contact.email)}</a></div></div>`:""}
+    </div></div>`;
+  $("#sender").addEventListener("input",e=>{SENDER=e.target.value||"Joel Matthew";localStorage.setItem("wci:sender",e.target.value);$("#ebody").textContent=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);});
+  $("#cs").onclick=e=>copyText(c.outreach.subject,e.currentTarget,"Copy subject");
+  $("#cb").onclick=e=>copyText(c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER),e.currentTarget,"Copy email");
+  $("#mk").onclick=()=>{if(CONTACTED[c._id])delete CONTACTED[c._id];else CONTACTED[c._id]={contactedAt:new Date().toISOString(),by:SENDER};saveContacted();render();};
+}
+function copyText(t,btn,label){navigator.clipboard.writeText(t).then(()=>{const o=btn.innerHTML;btn.innerHTML=I.copy+" Copied";setTimeout(()=>btn.innerHTML=label?I.copy+" "+label:o,1500);}).catch(()=>{if(btn)btn.innerHTML=I.copy+" Copy failed";});}
+
+/* ── keyboard ───────────────────────────────────────── */
+document.addEventListener("keydown",e=>{
+  const inField=/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+  if(e.key==="/"&&!inField){const g=$("#gq");if(g){e.preventDefault();g.focus();}return;}
+  if(e.key==="t"&&!inField){cycleTheme();return;}
+  if(e.key==="Escape"&&e.target.id==="gq"){e.target.value="";if(EXP){EXP.query="";syncHash();refreshPipeline();}e.target.blur();}
+});
+
+/* ── boot ───────────────────────────────────────────── */
+async function boot(){
+  let snap=SNAP_SRC;
+  if(snap==="fetch"){$("#app").innerHTML='<div class="empty sec" style="margin-top:80px">Loading snapshot\u2026</div>';
+    try{const r=await fetch("snapshot.json",{cache:"no-cache"});if(!r.ok)throw new Error("HTTP "+r.status);snap=await r.json();}
+    catch(e){$("#app").innerHTML='<div class="empty"><div class="big">Snapshot failed to load.</div><div class="sec">Re-export from the pipeline and re-publish.</div></div>';return;}}
+  initData(snap);render();
+}
+boot();
+</script>

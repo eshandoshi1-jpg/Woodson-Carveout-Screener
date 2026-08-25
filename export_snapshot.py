@@ -104,17 +104,20 @@ def build_signals(r, fl):
     fdate = r.get("Filing_Date")
 
     if _hfs_live(r):
-        out.append({"type": "held_for_sale", "hard": True, "date": _iso(r.get("HFS_Latest_Filed")),
-                    "filing": _filing(r.get("HFS_Doc_URL") or doc, _s(r.get("HFS_Form")) or "10-K/Q",
-                                      r.get("HFS_Latest_Filed"))})
+        filing = _filing(r.get("HFS_Doc_URL") or doc, _s(r.get("HFS_Form")) or "10-K/Q",
+                         r.get("HFS_Latest_Filed"))
+        out.append({"type": "held_for_sale", "hard": bool(filing),
+                    "date": _iso(r.get("HFS_Latest_Filed")), "filing": filing})
     if str(r.get("Co_Timing_Signal")) == "EXPLORATORY":
         lang = _s(r.get("Language_Source_URLs"))
         u = lang.split("|")[0].strip() if lang else doc
-        out.append({"type": "exploring_alternatives", "hard": True, "date": _iso(fdate),
-                    "filing": _filing(u, "10-K/Q", fdate)})
+        filing = _filing(u, "10-K/Q", fdate)
+        out.append({"type": "exploring_alternatives", "hard": bool(filing),
+                    "date": _iso(fdate), "filing": filing})
     if _num(r.get("P_Activist")) and _num(r.get("P_Activist")) >= 2:
-        out.append({"type": "activist_13d", "hard": True, "date": None,
-                    "filing": _filing(fl.get("P_Activist"), "SC 13D")})
+        filing = _filing(fl.get("P_Activist"), "SC 13D")
+        out.append({"type": "activist_13d", "hard": bool(filing), "date": None,
+                    "filing": filing})
     if _truthy(r.get("Deleveraging_Intent")):
         out.append({"type": "deleveraging_intent", "hard": False, "date": None,
                     "filing": _filing(r.get("Deleveraging_URL"), "10-K/Q")})
@@ -148,10 +151,12 @@ def div_mandate(rev_usd, margin_pct):
         f = "below"                                   # below the $75M revenue floor
     elif ebitda is not None and ebitda < MANDATE["ebitda_min"]:
         f = "weak"                                    # right size, but under the $6M EBITDA floor
+    elif ebitda is None:
+        f = "possible"                                # revenue fits; EBITDA remains unresolved
     else:
         f = "fit"
     return {"fit": f, "ebitdaEstUsd": int(ebitda) if ebitda is not None else None,
-            "verify": bool(f == "fit" and ebitda is None)}   # fits on revenue; EBITDA not in the data
+            "verify": bool(f == "possible")}
 
 
 def build_all_segments(sub, candidate_name):
@@ -206,10 +211,10 @@ def why_text(r):
     return s[0].upper() + s[1:]
 
 
-def evidence_tier(r):
-    if _hfs_live(r) or _truthy(r.get("Deleveraging_Intent")) or str(r.get("Co_Timing_Signal")) == "EXPLORATORY":
+def evidence_tier(signals, has_division):
+    if any(s.get("hard") and s.get("filing") for s in signals):
         return "A"
-    if _clean_div(r.get("FP_Candidate_Segment")):
+    if has_division:
         return "B"
     return "C"
 
@@ -237,6 +242,7 @@ def main():
     companies = []
     for _, r in co.sort_values("Propensity_Score", ascending=False).iterrows():
         fl = _links(r)
+        signals = build_signals(r, fl)
         div_name = _clean_div(r.get("FP_Candidate_Segment"))
         division = None
         if div_name:
@@ -260,18 +266,19 @@ def main():
         companies.append({
             "company": r["Company"], "ticker": _s(r.get("Ticker")), "cik": _s(r.get("CIK")),
             "score": int(_num(r.get("Propensity_Score")) or 0), "tier": tier_val(r.get("Tier")),
-            "mandateFit": str(r.get("Mandate_Fit")) == "FIT",
+            "mandateFit": bool(division and division["mandate"]["fit"] == "fit"),
             "sector": None,
             "sources": [SRC.get(str(r.get("source")), "fortune1000")],
             "archetype": {"strategic_pruner": "pruner", "forced_seller": "forced_seller"}.get(str(r.get("FP_Archetype"))),
             "candidateDivision": division,
             "hasFitDivision": _truthy(r.get("FP_Has_Fit")),   # a Woodson-sized divisible unit exists
+            "hasPossibleFitDivision": _truthy(r.get("FP_Has_Possible_Fit")),
             "segments": build_all_segments(seg_groups.get(r["Company"]), div_name) if seg_groups.get(r["Company"]) is not None else [],
             "tenKUrl": _s(r.get("Filing_Doc_URL")),
             "why": why_text(r),
-            "signals": build_signals(r, fl),
+            "signals": signals,
             "contact": contact,
-            "outreach": {"evidenceTier": evidence_tier(r),
+            "outreach": {"evidenceTier": evidence_tier(signals, bool(div_name)),
                          "subject": "Woodson Equity — carveout / divestiture inquiry",
                          "body": body},
         })

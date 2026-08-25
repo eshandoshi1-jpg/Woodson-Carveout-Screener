@@ -201,11 +201,12 @@ tbody tr.row.kbd{box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-
 .divmore .rd10k{display:inline-block;margin:0 14px 12px;font-size:13px;font-weight:600;color:var(--accent)}
 .mtag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px}
 .mtag-fit{background:rgba(30,122,70,.13);color:var(--positive)}
+.mtag-possible{background:var(--warn-soft);color:var(--warn)}
 .mtag-below{background:var(--group);color:var(--text-muted);box-shadow:inset 0 0 0 1px var(--border)}
 .mtag-above{background:var(--warn-soft);color:var(--warn)}
 .mtag-weak{background:rgba(163,50,50,.13);color:var(--negative)}
 .fdot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle}
-.fdot-fit{background:var(--positive)} .fdot-below{background:var(--text-muted)} .fdot-above{background:var(--warn)} .fdot-weak{background:var(--negative)} .fdot-unknown{background:var(--border-strong)}
+.fdot-fit{background:var(--positive)} .fdot-possible{background:var(--warn)} .fdot-below{background:var(--text-muted)} .fdot-above{background:var(--warn)} .fdot-weak{background:var(--negative)} .fdot-unknown{background:var(--border-strong)}
 .fdot-fitq{background:transparent;box-shadow:inset 0 0 0 2px var(--positive)}
 .fitlegend{padding:2px 14px 12px;font-size:11px;color:var(--text-muted);display:flex;gap:16px;flex-wrap:wrap}
 .fitlegend span{display:inline-flex;align-items:center;gap:5px}
@@ -350,7 +351,7 @@ function initData(snap){
   N_LIVE=COMPANIES.filter(c=>c._live.length).length;
   N_CONTACT=COMPANIES.filter(c=>c.contact).length;
   N_TARGETS=N_T1+N_T2;
-  N_QUEUE=COMPANIES.filter(c=>c.hasFitDivision&&(c.tier===1||c.tier===2||c.tier===3)).length;
+  N_QUEUE=COMPANIES.filter(c=>c.contact&&(c.tier===1||c.tier===2||c.tier===3)).length;
   TIER_COUNTS={};TIER_ORDER.forEach(t=>TIER_COUNTS[t]=COMPANIES.filter(c=>c.tier===t).length);
 }
 const strongest=c=>[...c._live].sort((a,b)=>(b.hard-a.hard)||(SIG_ORDER.indexOf(a.type)-SIG_ORDER.indexOf(b.type)))[0];
@@ -410,7 +411,7 @@ function render(){
   const v=$("#view");
   if(r.view==="pipeline")renderPipeline(v,r.q);
   else if(r.view==="company")renderCompany(v,r.id);
-  else if(r.view==="outreach")r.id?renderOutreachOne(v,r.id):renderOutreachList(v);
+  else if(r.view==="outreach")r.id?renderOutreachOne(v,r.id):renderOutreachList(v,r.q);
   else renderOverview(v);
   if(r.view!=="pipeline"){const g=$("#gq");if(g)g.value="";}
   $(".work").scrollTop=0;
@@ -420,7 +421,7 @@ function render(){
 const scoreCell=s=>`<span class="score"><span class="v tnum">${s}</span><span class="bar"><i style="width:${Math.min(100,s/20*100)}%"></i></span></span>`;
 const tierBadge=t=>`<span class="badge ${tierClass(t)}">${tierLabel(t)}</span>`;
 function sigChip(sig,withLink){
-  const m=SIG[sig.type]||{label:sig.type,hard:false};const cls=sig.filing?(m.hard?"hard":"soft"):"flag";
+  const m=SIG[sig.type]||{label:sig.type,hard:false};const cls=sig.filing?(sig.hard?"hard":"soft"):"flag";
   const dated=sig.date&&ageDays(sig.date)>365?` <span class="dated">\u00b7 ${fmtDate(sig.date)}</span>`:"";
   if(withLink&&sig.filing)return `<a class="chip ${cls}" href="${esc(sig.filing.url)}" target="_blank" rel="noopener">${esc(m.label)}${dated} <span class="ext">${I.ext}</span></a>`;
   if(!sig.filing)return `<span class="chip flag" title="Model-flagged \u2014 no filing link">${esc(m.label)} \u00b7 model-flagged</span>`;
@@ -428,9 +429,9 @@ function sigChip(sig,withLink){
 }
 function sigDepth(s){
   const m=SIG[s.type]||{label:s.type};
-  const link=s.filing?`<a class="chip ${m.hard?"hard":"soft"}" href="${esc(s.filing.url)}" target="_blank" rel="noopener">${esc(s.filing.form||"filing")}${s.filing.date?" \u00b7 "+fmtDate(s.filing.date):""} <span class="ext">${I.ext}</span></a>`:'<span class="chip flag">model-flagged</span>';
+  const link=s.filing?`<a class="chip ${s.hard?"hard":"soft"}" href="${esc(s.filing.url)}" target="_blank" rel="noopener">${esc(s.filing.form||"filing")}${s.filing.date?" \u00b7 "+fmtDate(s.filing.date):""} <span class="ext">${I.ext}</span></a>`:'<span class="chip flag">model-flagged</span>';
   return `<div class="sigd">
-    <div class="sigd-h"><span class="sigd-name ${m.hard?"hard":""}">${esc(m.label)}</span>${link}</div>
+    <div class="sigd-h"><span class="sigd-name ${s.hard?"hard":""}">${esc(m.label)}</span>${link}</div>
     ${m.shows?`<div class="sigd-l"><span class="sigd-k">Shows</span>${esc(m.shows)}</div>`:""}
     ${m.implicates?`<div class="sigd-l"><span class="sigd-k">Implicates</span>${esc(m.implicates)}</div>`:""}
   </div>`;
@@ -443,6 +444,7 @@ function renderOverview(v){
   const maxc=Math.max(...counts.map(c=>c.n),1);
   const recent=COMPANIES.flatMap(c=>c._hard.filter(s=>s.date).map(s=>({c,s}))).sort((a,b)=>new Date(b.s.date)-new Date(a.s.date)).slice(0,7);
   const nFit=COMPANIES.filter(c=>c.hasFitDivision).length;
+  const nPossible=COMPANIES.filter(c=>c.hasPossibleFitDivision&&!c.hasFitDivision).length;
   v.innerHTML=`
     <div class="crumb">Dashboards</div>
     <div class="ptitle"><h1>Overview</h1></div>
@@ -453,7 +455,7 @@ function renderOverview(v){
       ${statCard(N_T1,"Tier 1 targets","highest conviction","#/pipeline?tier=1")}
       ${statCard(N_T2,"Tier 2 prospects","next tier","#/pipeline?tier=2")}
       ${statCard(fmtInt(N_LIVE),"Live signals","timing window open","#/pipeline?signal=held_for_sale,exploring_alternatives,activist_13d")}
-      ${statCard(fmtInt(nFit),"Woodson-fit deals","a division in the size box","#/pipeline?fit=1")}
+      ${statCard(fmtInt(nFit),"Confirmed fits",`${nPossible} more need EBITDA verification`,"#/pipeline?fit=1")}
     </div>
     <div class="panel">
       <div class="panel-h"><h2>Top targets</h2><span class="sub">Tier 1, by propensity</span><a class="link" href="#/pipeline?tier=1,2">Open pipeline ${I.arr}</a></div>
@@ -466,7 +468,7 @@ function renderOverview(v){
       <div class="panel"><div class="panel-h"><h2>Most recent hard signals</h2></div>
         <div class="recent">${recent.length?recent.map(({c,s})=>`<a href="#/company/${c._id}"><span class="rc">${esc(c.company)}</span>${sigChip(s,false)}<span class="rd">${fmtDate(s.date)}</span></a>`).join(""):'<div class="empty sec">No dated hard signals.</div>'}</div></div>
     </div>
-    <div class="methodo"><b>Propensity score (0\u201320)</b> measures whether a company is the <i>type</i> to divest, from filing signals across 10-K/10-Q/8-K/SC&nbsp;13D. <b>A live signal</b> indicates <i>timing</i> \u2014 a dated, recent (within 12 months) filing event that a divestiture window may be open now. Two archetypes drive the candidate division: a <b>strategic pruner</b> sells its sub-scale, underperforming orphan; a <b>balance-sheet-forced seller</b> sells its most marketable division to cut debt. Every signal links to its source SEC filing; no claim in this tool or its outreach is generated without one.</div>`;
+    <div class="methodo"><b>Propensity score (0\u201320)</b> measures whether a company is the <i>type</i> to divest, from filing signals across 10-K/10-Q/8-K/SC&nbsp;13D. <b>A live signal</b> indicates <i>timing</i> \u2014 a dated, recent (within 12 months) filing event that a divestiture window may be open now. Two archetypes drive the candidate division: a <b>strategic pruner</b> sells its sub-scale, underperforming orphan; a <b>balance-sheet-forced seller</b> sells its most marketable division to cut debt. Filing-backed signals link to their source; unresolved detections are visibly model-flagged and must be verified before use.</div>`;
 }
 const statCard=(n,l,q,href)=>`<div class="${href?"stat link":"stat"}" ${href?`onclick="go('${href}')"`:""}><div class="n tnum">${n}</div><div class="l">${l}</div><div class="q">${q}</div></div>`;
 
@@ -587,15 +589,14 @@ function popover(btn,pop){const b=$(btn),p=$(pop);if(!b)return;
 /* ── PROFILE ────────────────────────────────────────── */
 function mtag(m){
   if(!m||m.fit==="unknown")return "";
-  const L={fit:["Fits Woodson's mandate","fit"],below:["Below Woodson's size","below"],above:["Above size \u00b7 >$300M deal","above"],weak:["Right size \u00b7 below $6M EBITDA","weak"]};
+  const L={fit:["Confirmed mandate fit","fit"],possible:["Revenue fits \u00b7 verify EBITDA","possible"],below:["Below Woodson's size","below"],above:["Above size \u00b7 >$300M deal","above"],weak:["Right size \u00b7 below $6M EBITDA","weak"]};
   let [label,cls]=L[m.fit];
-  if(m.fit==="fit"&&m.verify)label="Fits on revenue \u00b7 verify EBITDA";
   const eb=m.ebitdaEstUsd!=null?" \u00b7 ~"+fmtUsd(m.ebitdaEstUsd)+" EBITDA":"";
   return `<span class="mtag mtag-${cls}" title="Woodson: revenue >$75M, EBITDA >$6M, deal up to $300M${eb}">${label}</span>`;
 }
-function segFitDot(m){const f=(m&&m.fit)||"unknown";const vq=f==="fit"&&m&&m.verify;
-  const t={fit:"Fits Woodson's size",below:"Below size",above:"Above size (>$300M)",weak:"Right size, below $6M EBITDA",unknown:"Size unknown"};
-  return `<span class="fdot fdot-${vq?"fitq":f}" title="${vq?"Fits on revenue \u2014 verify EBITDA":t[f]}"></span>`;}
+function segFitDot(m){const f=(m&&m.fit)||"unknown";
+  const t={fit:"Confirmed mandate fit",possible:"Revenue fits; EBITDA unknown",below:"Below size",above:"Above size (>$300M)",weak:"Right size, below $6M EBITDA",unknown:"Size unknown"};
+  return `<span class="fdot fdot-${f}" title="${t[f]}"></span>`;}
 function divContext(c){
   const segs=c.segments||[];if(segs.length<2)return "";
   const rows=segs.map(s=>`<tr class="${s.isCandidate?"cand":""}"><td>${esc(s.name)}${s.isCatchall?' <span class="muted">(other)</span>':""}${s.isCandidate?' <span class="tag">candidate</span>':""}</td><td class="num">${fmtUsd(s.revenueUsd)}</td><td class="num">${fmtPct(s.marginPct)}</td><td class="num">${s.pctOfParent!=null?Math.round(s.pctOfParent)+"%":"\u2014"}</td><td>${segFitDot(s.mandate)}</td></tr>`).join("");
@@ -605,7 +606,7 @@ function divContext(c){
     tenk=`<a class="rd10k" target="_blank" rel="noopener" href="${esc(c.tenKUrl)}${frag}">${cand?"Read this division in the latest 10-K":"Open the latest 10-K"} ${I.ext}</a>`;}
   return `<details class="divmore"><summary>All ${segs.length} divisions in context, vs Woodson's size box</summary>
     <table class="segtable"><thead><tr><th>Division</th><th class="num">Revenue</th><th class="num">Op. margin</th><th class="num">% parent</th><th>Fit</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="fitlegend"><span><span class="fdot fdot-fit"></span>Fits Woodson</span><span><span class="fdot fdot-below"></span>Below size</span><span><span class="fdot fdot-above"></span>Above size</span><span><span class="fdot fdot-weak"></span>Below EBITDA</span></div>
+    <div class="fitlegend"><span><span class="fdot fdot-fit"></span>Confirmed fit</span><span><span class="fdot fdot-possible"></span>Verify EBITDA</span><span><span class="fdot fdot-below"></span>Below size</span><span><span class="fdot fdot-above"></span>Above size</span><span><span class="fdot fdot-weak"></span>Below EBITDA</span></div>
     <div class="ctxnote">${divRationale(c)}</div>${tenk}</details>`;
 }
 function divRationale(c){
@@ -653,21 +654,35 @@ function renderCompany(v,id){const c=BY_ID[id];
   v.innerHTML=`<div class="crumb"><a href="#/pipeline">Pipeline</a> / ${esc(c.company)}</div><div class="panel section-gap">${profileHtml(c,false)}</div>`;}
 
 /* ── OUTREACH ───────────────────────────────────────── */
-function renderOutreachList(v){
-  const t=COMPANIES.filter(c=>c.hasFitDivision&&(c.tier===1||c.tier===2||c.tier===3))
-    .sort((a,b)=>b.score-a.score).sort((a,b)=>(!!CONTACTED[a._id])-(!!CONTACTED[b._id]));
+function renderOutreachList(v,q){
+  const mode=q.get("mode")||"recommended";
+  const eligible=c=>mode==="division"
+    ? c.contact&&(c.hasFitDivision||c.hasPossibleFitDivision)&&(c.tier===1||c.tier===2||c.tier===3)
+    : mode==="coverage"
+      ? c.contact&&c.tier!=="watchlist"
+      : c.contact&&(c.tier===1||c.tier===2||c.tier===3);
+  const t=COMPANIES.filter(eligible)
+    .sort((a,b)=>(!!CONTACTED[a._id])-(!!CONTACTED[b._id])||Number(b.hasFitDivision)-Number(a.hasFitDivision)||Number(b.hasPossibleFitDivision)-Number(a.hasPossibleFitDivision)||b.score-a.score);
   const notyet=t.filter(c=>!CONTACTED[c._id]).length;
-  const heldOut=COMPANIES.filter(c=>(c.tier===1||c.tier===2)&&!c.hasFitDivision).length;
-  v.innerHTML=`<div class="crumb">Outreach</div><div class="ptitle"><h1>Outreach Queue</h1><div class="rt"><span class="count-note">${t.length} deals \u00b7 ${notyet} not yet contacted</span></div></div>
-    <div class="ohelp">Only companies with a division inside Woodson's size box \u2014 the deals you can actually do, pitched at that division. ${heldOut} higher-scored targets are held out because no division fits Woodson's size; review them in the pipeline via the <a href="#/pipeline?fit=1">Fits Woodson</a> filter.</div>
-    <div class="panel"><div class="gridwrap"><table><thead><tr><th>Company</th><th>Fit division</th><th class="num">Div. rev.</th><th>Tier</th><th>Contact</th><th>Evidence</th><th>Status</th><th></th></tr></thead>
+  const confirmed=t.filter(c=>c.hasFitDivision).length;
+  const possible=t.filter(c=>c.hasPossibleFitDivision&&!c.hasFitDivision).length;
+  const desc=mode==="division"
+    ? `Division-specific prospects: ${confirmed} confirmed fits and ${possible} revenue-fit opportunities needing EBITDA verification.`
+    : mode==="coverage"
+      ? "Broad corporate coverage: all reachable companies except already-announced/watchlist situations. Drop-tier firms receive the generic portfolio-review email, not a claim that a particular division is for sale."
+      : `Recommended outreach: every reachable Tier 1–3 company, including ${confirmed} confirmed fits and ${possible} revenue-fit opportunities. Firms without a qualified division receive evidence-led or generic exploratory outreach.`;
+  v.innerHTML=`<div class="crumb">Outreach</div><div class="ptitle"><h1>Firms to Contact</h1><div class="rt"><span class="count-note">${t.length} firms \u00b7 ${notyet} not yet contacted</span></div></div>
+    <div class="pills"><a class="pill ${mode==="recommended"?"on":""}" href="#/outreach">Recommended</a><a class="pill ${mode==="division"?"on":""}" href="#/outreach?mode=division">Division-specific</a><a class="pill ${mode==="coverage"?"on":""}" href="#/outreach?mode=coverage">Broad coverage</a></div>
+    <div class="ohelp">${desc}</div>
+    <div class="panel"><div class="gridwrap"><table><thead><tr><th>Company</th><th>Interesting division</th><th class="num">Div. rev.</th><th>Outreach basis</th><th>Tier</th><th>Contact</th><th>Evidence</th><th>Status</th><th></th></tr></thead>
     <tbody>${t.map(c=>{const cd=CONTACTED[c._id];const et=c.outreach.evidenceTier;const d=c.candidateDivision;return `<tr class="row" onclick="go('#/outreach/${c._id}')">
       <td><span class="dealname">${esc(c.company)}</span>${c.ticker?`<span class="tick">${esc(c.ticker)}</span>`:""}</td>
       <td>${d?esc(d.name):"\u2014"}</td><td class="num">${d?fmtUsd(d.revenueUsd):"\u2014"}</td>
+      <td>${c.hasFitDivision?'<span class="mtag mtag-fit">Confirmed fit</span>':c.hasPossibleFitDivision?'<span class="mtag mtag-possible">Verify EBITDA</span>':d?'<span class="tag">Model candidate</span>':'<span class="tag">General outreach</span>'}</td>
       <td>${tierBadge(c.tier)}</td><td class="sec">${c.contact?esc(c.contact.name):'<span class="muted">No contact</span>'}</td>
       <td><span class="tierbadge tier${et}">${et==="A"?"Filed disclosure":et==="B"?"Model analysis":"Generic"}</span></td>
       <td class="sec">${cd?`Contacted ${fmtDate(cd.contactedAt.slice(0,10))}`:'<span class="muted">Not contacted</span>'}</td>
-      <td class="num"><span class="dealname">Draft ${I.arr}</span></td></tr>`;}).join("")||'<tr><td colspan="8"><div class="empty">No companies with a Woodson-sized division in the target tiers yet.</div></td></tr>'}</tbody></table></div></div>`;
+      <td class="num"><span class="dealname">Draft ${I.arr}</span></td></tr>`;}).join("")||'<tr><td colspan="9"><div class="empty">No firms match this outreach view.</div></td></tr>'}</tbody></table></div></div>`;
 }
 function outreachWhy(c){
   const d=c.candidateDivision;

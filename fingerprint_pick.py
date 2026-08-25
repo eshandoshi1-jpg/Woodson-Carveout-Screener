@@ -69,7 +69,7 @@ def _fits_mandate(rev_m, margin_pct):
 
 FP_COLS = ["FP_Candidate_Segment", "FP_Candidate_Rev_M", "FP_Candidate_Margin_pct",
            "FP_Candidate_Share_pct", "FP_Archetype", "FP_Grade", "FP_Pct",
-           "FP_Score", "FP_Max", "FP_Has_Fit"]
+           "FP_Score", "FP_Max", "FP_Has_Fit", "FP_Has_Possible_Fit"]
 
 
 def _clean_seg(s) -> str:
@@ -80,6 +80,15 @@ def _clean_seg(s) -> str:
 def _num(x):
     v = pd.to_numeric(pd.Series([x]), errors="coerce").iloc[0]
     return None if pd.isna(v) else float(v)
+
+
+def _truthy(x) -> bool:
+    """Boolean conversion that never treats a missing pandas value as evidence."""
+    if x is None or pd.isna(x):
+        return False
+    if isinstance(x, str):
+        return x.strip().lower() in ("true", "1", "yes")
+    return bool(x)
 
 
 def _activist_level(p_activist):
@@ -97,14 +106,14 @@ def _activist_level(p_activist):
 
 
 def _parent_flags(row) -> dict:
-    ry = _num(row.get("Parent_YoY_pct")) if bool(row.get("YoY_Meaningful")) else None
+    ry = _num(row.get("Parent_YoY_pct")) if _truthy(row.get("YoY_Meaningful")) else None
     return {
-        "deleveraging_intent": bool(row.get("Deleveraging_Intent")),
+        "deleveraging_intent": _truthy(row.get("Deleveraging_Intent")),
         "leverage_high": (_num(row.get("P_Leverage")) or 0) >= 2,
-        "serial_divester": bool(row.get("Serial_Divester_18mo")),
+        "serial_divester": _truthy(row.get("Serial_Divester_18mo")),
         "activist_level": _activist_level(row.get("P_Activist")),
         "rev_yoy_pct": ry,
-        "restructuring": bool(row.get("Q_Restructuring_Hit")),
+        "restructuring": _truthy(row.get("Q_Restructuring_Hit")),
         # distress / megadeal / post-acquisition spike not derivable from the scan
     }
 
@@ -125,7 +134,7 @@ def pick_for_company(seg_rows: pd.DataFrame) -> dict:
         low = name.lower()
         if not name or low in ("", "nan", "none"):
             continue
-        if bool(s.get("Is_Catchall")) or any(k in low for k in CATCHALL_TOKENS):
+        if _truthy(s.get("Is_Catchall")) or any(k in low for k in CATCHALL_TOKENS):
             continue
         sr = _num(s.get("Revenue_M"))
         share = (sr / parent_rev * 100) if (sr is not None and parent_rev) else None
@@ -147,18 +156,22 @@ def pick_for_company(seg_rows: pd.DataFrame) -> dict:
             "separable": True,
         }
         r = fp.score_segment(seg, parent)
+        status = ("fit" if _fits_mandate(sr, margin) and margin is not None else
+                  "possible" if _fits_mandate(sr, margin) else "not_fit")
         cands.append({"name": name, "rev": sr, "margin": margin, "share": share, "res": r,
-                      "fits": _fits_mandate(sr, margin)})
+                      "mandate_status": status})
 
     if not cands:
         return {}
     # Prefer a Woodson-sized division among the divestible ones; fall back to the
     # best-scoring overall (which the UI then flags above/below size). Tie-break toward
     # the smaller (more orphan-like) share so we never default to the biggest unit.
-    fitting = [c for c in cands if c["fits"]]
-    pool = fitting if fitting else cands
+    fitting = [c for c in cands if c["mandate_status"] == "fit"]
+    possible = [c for c in cands if c["mandate_status"] == "possible"]
+    pool = fitting or possible or cands
     best = max(pool, key=lambda c: (c["res"]["pct"], -(c["share"] or 0)))
-    any_fit = any(c["fits"] for c in cands)
+    any_fit = bool(fitting)
+    any_possible = bool(possible)
     r = best["res"]
     return {
         "FP_Candidate_Segment": best["name"],
@@ -171,6 +184,7 @@ def pick_for_company(seg_rows: pd.DataFrame) -> dict:
         "FP_Score": r["score"],
         "FP_Max": r["max"],
         "FP_Has_Fit": bool(any_fit),          # does ANY divisible unit fit Woodson's box?
+        "FP_Has_Possible_Fit": bool(any_possible),
     }
 
 

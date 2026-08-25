@@ -27,6 +27,7 @@ import re
 import time
 import json
 import logging
+import html as html_lib
 from typing import Optional, Tuple
 from datetime import datetime, timedelta
 
@@ -279,16 +280,22 @@ def _score_csuite_change(subs: dict, cik: str) -> Tuple[int, str]:
         body = _get_text(_filing_url(cik, acc, doc))
         if not body:
             continue
-        text = re.sub(r"<[^>]+>", " ", body).lower()
+        text = html_lib.unescape(re.sub(r"<[^>]+>", " ", body)).lower()
         # Remove the standard Item 5.02 boilerplate title so its "departure"
         # wording doesn't create a false positive.
         text = re.sub(
             r"departure of directors or certain officers[^.]*?compensatory arrangements of certain officers",
             " ", text)
 
-        has_departure = any(term in text for term in DEPARTURE_TERMS)
-        has_officer = any(term in text for term in OFFICER_TERMS)
-        if has_departure and has_officer:
+        # Require the departure language and senior-officer title in the same
+        # local passage. Their appearing anywhere in a long earnings release is
+        # not evidence that the senior officer departed.
+        departure_windows = []
+        for term in DEPARTURE_TERMS:
+            departure_windows.extend(text[max(0, m.start()-220):m.end()+220]
+                                     for m in re.finditer(re.escape(term), text))
+        if any(any(officer in window for officer in OFFICER_TERMS)
+               for window in departure_windows):
             return 2, f"c-suite change: senior officer departure via 8-K Item 5.02 ({filing['date']}) → +2"
     return 0, "c-suite change: no senior departure in last 18 months"
 
@@ -334,6 +341,14 @@ def _score_rev_decline(facts: dict) -> Tuple[int, str]:
 # Parent factor 6: Guidance/dividend cut (8-K 2.02 / 8.01)
 # ---------------------------------------------------------------------------
 
+def _has_explicit_guidance_or_dividend_cut(text: str) -> bool:
+    low = re.sub(r"\s+", " ", text.lower())
+    action = r"(?:cut|cuts|cutting|lower(?:ed|ing|s)?|reduc(?:e|ed|es|ing|tion)|withdraw(?:n|s|ing)?|suspend(?:ed|s|ing)?)"
+    subject = r"(?:guidance|outlook|forecast|dividend|distribution)"
+    return bool(re.search(rf"{action}.{{0,100}}{subject}", low) or
+                re.search(rf"{subject}.{{0,100}}{action}", low))
+
+
 def _score_guidance_cut(subs: dict, cik: str) -> Tuple[int, str]:
     eight_ks = _recent_filings(subs, "8-K", months=18)
     for filing in eight_ks:
@@ -344,9 +359,10 @@ def _score_guidance_cut(subs: dict, cik: str) -> Tuple[int, str]:
         if "8.01" in html or ("2.02" in html):
             # Check text for dividend/guidance cut language
             doc_url = _filing_url(cik, acc, filing["doc"])
-            text = re.sub(r"<[^>]+>", " ", _get_text(doc_url))
-            low = text.lower()
-            if any(p in low for p in ["suspend", "reduc", "cut", "lower", "withdraw", "declin"]):
+            text = html_lib.unescape(re.sub(r"<[^>]+>", " ", _get_text(doc_url)))
+            # An explicit action must be tied to guidance/dividends in the same
+            # short passage; generic words like "decline" in earnings text do not count.
+            if _has_explicit_guidance_or_dividend_cut(text):
                 return 1, f"guidance/div cut: signal in 8-K {filing['date']} → +1"
     return 0, "guidance/div cut: none detected"
 

@@ -23,6 +23,7 @@ import json
 import time
 import logging
 import datetime as dt
+import shutil
 from pathlib import Path
 
 import requests
@@ -60,7 +61,7 @@ def _get(url, tries=4):
         if r.status_code == 404:
             return None                      # no index that day (weekend/holiday)
         time.sleep(2.0 * (i + 1))            # 429 / 5xx backoff
-    return None
+    raise RuntimeError(f"SEC daily index unavailable after {tries} attempts: {url}")
 
 
 def load_state():
@@ -124,7 +125,9 @@ def main():
 
     st = load_state()
     since = dt.date.fromisoformat(st["highWater"])
-    until = dt.date.today()
+    # The current day's master index is not complete during either scheduled run.
+    # Stop at yesterday so a temporary same-day 404 cannot advance past filings.
+    until = dt.date.today() - dt.timedelta(days=1)
     if (until - since).days > MAX_BACKFILL_DAYS:
         until = since + dt.timedelta(days=MAX_BACKFILL_DAYS)
     if until <= since:
@@ -140,7 +143,17 @@ def main():
     if affected:
         fresh = rescan(affected, name2rev)
         existing = pd.read_excel(ENRICHED, engine="openpyxl")
-        keep = existing[~existing["Company"].isin(affected)]
+        # A transient SEC failure must not replace a previously good company with
+        # a failed/empty rescan. Only publish companies with a successful segment scan.
+        good_status = {"XBRL"}
+        good_names = set(fresh.loc[fresh["Parse_Status"].isin(good_status), "Company"])
+        failed_names = set(affected) - good_names
+        if failed_names:
+            log.warning(f"[incremental] preserving prior rows for {len(failed_names)} failed rescans")
+        fresh = fresh[fresh["Company"].isin(good_names)]
+        keep = existing[~existing["Company"].isin(good_names)]
+        prev = REPO / "data" / "woodson_enriched_prev.xlsx"
+        shutil.copy2(ENRICHED, prev)
         merged = pd.concat([keep, fresh.reindex(columns=existing.columns)], ignore_index=True)
         merged.to_excel(ENRICHED, index=False)
         log.info(f"[incremental] merged {fresh['Company'].nunique()} refreshed companies; "

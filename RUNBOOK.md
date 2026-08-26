@@ -5,8 +5,15 @@ One page, for whoever owns this after the analyst. No coding required to operate
 ## What it is
 A private web tool that screens public companies for likely divestitures, names the division,
 links each signal to its SEC filing, and attaches the outreach contact. Three tabs: **Overview**
-(what we've found), **Explorer** (search all companies), **Outreach** (draft emails — copy only,
-nothing sends).
+(what we've found), **Explorer** (search all companies), **Outreach** (review individual drafts or
+select several firms and download a reviewed draft batch — nothing sends).
+
+Geographic reporting segments are intentionally withheld from outreach language. Those firms remain
+available for general portfolio-review outreach, but the region itself is not described as non-core.
+
+When a draft is marked contacted, the company appears under **Saved Views → Contacted companies** in
+the sidebar. That status currently belongs to the browser that marked it; the future HubSpot sync will
+make it shared across users and devices.
 
 ## The URL
 - **App:** _<paste the Vercel URL here once deployed>_

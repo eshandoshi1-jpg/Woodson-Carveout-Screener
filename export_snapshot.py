@@ -244,6 +244,7 @@ def main():
         fl = _links(r)
         signals = build_signals(r, fl)
         div_name = _clean_div(r.get("FP_Candidate_Segment"))
+        geographic_candidate = bool(div_name and O.is_geographic_segment(div_name))
         division = None
         if div_name:
             _drev = (int(_num(r.get("FP_Candidate_Rev_M")) * 1_000_000)
@@ -254,6 +255,7 @@ def main():
                 "operatingMarginPct": _num(r.get("FP_Candidate_Margin_pct")),
                 "pctOfParentRevenue": _num(r.get("FP_Candidate_Share_pct")),
                 "mandate": div_mandate(_drev, _num(r.get("FP_Candidate_Margin_pct"))),
+                "outreachNameAllowed": not geographic_candidate,
             }
         contact = None
         if _s(r.get("primary_email")):
@@ -278,9 +280,12 @@ def main():
             "why": why_text(r),
             "signals": signals,
             "contact": contact,
-            "outreach": {"evidenceTier": evidence_tier(signals, bool(div_name)),
+            "outreach": {"evidenceTier": evidence_tier(signals, bool(div_name) and not geographic_candidate),
                          "subject": "Woodson Equity — carveout / divestiture inquiry",
-                         "body": body},
+                         "body": body,
+                         "divisionNameSuppressed": geographic_candidate,
+                         "suppressionReason": ("Geographic reporting segment — use general portfolio outreach"
+                                               if geographic_candidate else None)},
         })
 
     # what moved since the previous snapshot — tier upgrades (from the last refresh's re-scan)

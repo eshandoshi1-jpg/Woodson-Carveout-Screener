@@ -31,6 +31,16 @@ NAME_MAX_SHARE = 45.0           # above this % of parent, the "division" is ~cor
 ENRICHED = "data/woodson_enriched.xlsx"
 OUT = "data/outreach_drafts.csv"
 
+# Reportable geographies are useful screening clues, but they are not evidence that
+# management views the region as a separable, non-core business.  Keep the company in
+# the outreach universe while suppressing the region name from the email.
+GEOGRAPHIC_SEGMENT_RE = re.compile(
+    r"\b(asia|asia[ -]?pacific|apac|europe|emea|middle east|africa|international|"
+    r"united kingdom|u\.?k\.?|japan|australia|new zealand|janz|china|americas?|"
+    r"north america|latin america|south america|canada|mexico)\b",
+    re.IGNORECASE,
+)
+
 
 def _first_name(full: str) -> str:
     full = str(full or "").strip()
@@ -51,6 +61,20 @@ def _clean_div(s) -> str:
     return "" if s.lower() in ("", "nan", "none") else s
 
 
+def _truthy(value) -> bool:
+    """Boolean conversion that treats missing pandas values as false."""
+    if value is None or pd.isna(value):
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes")
+    return bool(value)
+
+
+def is_geographic_segment(name: str) -> bool:
+    """True when a candidate is a reporting geography rather than a named business."""
+    return bool(GEOGRAPHIC_SEGMENT_RE.search(_clean_div(name)))
+
+
 def _list_phrase(source: str) -> str:
     return {"Fortune 1000": "the Fortune 1000 list",
             "Fortune LY": "the Fortune 1000 list",
@@ -62,10 +86,11 @@ def personalization(r) -> str:
     company = r["Company"]
     div = _clean_div(r.get("FP_Candidate_Segment"))
     share = pd.to_numeric(pd.Series([r.get("FP_Candidate_Share_pct")]), errors="coerce").iloc[0]
-    nameable = bool(div) and (pd.isna(share) or share <= NAME_MAX_SHARE)
+    nameable = (bool(div) and not is_geographic_segment(div)
+                and (pd.isna(share) or share <= NAME_MAX_SHARE))
     timing = str(r.get("Co_Timing_Signal") or "")
-    delever = bool(r.get("Deleveraging_Intent"))
-    hfs = bool(r.get("HFS_Live"))
+    delever = _truthy(r.get("Deleveraging_Intent"))
+    hfs = _truthy(r.get("HFS_Live"))
     exploring = timing == "EXPLORATORY"          # real language only; FETCH_FAIL/PENDING excluded
     pruner = str(r.get("FP_Archetype")) == "strategic_pruner"
 

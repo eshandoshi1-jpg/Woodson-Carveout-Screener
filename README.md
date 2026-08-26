@@ -7,6 +7,8 @@ outreach contact. The front end is a single self-contained web app.
 
 **Operators:** see [`RUNBOOK.md`](RUNBOOK.md) — one page, no coding required.
 
+**Deferred CRM/send integration:** see [`HUBSPOT_INTEGRATION_PLAN.md`](HUBSPOT_INTEGRATION_PLAN.md).
+
 ## Layout
 - `web/` — the deployed app (`index.html` + `snapshot.json` + `vercel.json`). **Vercel root directory = `web/`.**
 - `refresh.py` — the refresh entrypoint: `pipeline_incremental` → `export_snapshot` → `build_web`.
@@ -14,6 +16,8 @@ outreach contact. The front end is a single self-contained web app.
   new, merges into `data/woodson_enriched.xlsx`, advances `data/state.json` (high-water mark).
 - `export_snapshot.py` → `data/snapshot.json` (the app's data contract).
 - `build_web.py` → rebuilds `web/index.html` + `web/snapshot.json` from `data/woodson_app.template.html`.
+- The Outreach Queue supports safe multi-select, batch review, CSV draft export, and a sidebar
+  view of companies marked contacted. It never sends email.
 - `build_pipeline.py` — the full (slow) rebuild of the whole universe; run locally, not in CI.
 - Committed inputs (no external files needed at refresh time): `data/universe.csv` (CIK filter + re-scan
   inputs), `data/contacts.csv` (the rolodex).

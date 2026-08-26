@@ -5,6 +5,7 @@ import pandas as pd
 import conditions_engine as ce
 import export_snapshot as snapshot
 import fingerprint_pick as picker
+import outreach
 
 
 class TruthHandlingTests(unittest.TestCase):
@@ -54,6 +55,46 @@ class SignalPrecisionTests(unittest.TestCase):
     def test_explicit_guidance_cut_is_detected(self):
         self.assertTrue(ce._has_explicit_guidance_or_dividend_cut(
             "The company lowered its full-year earnings guidance."))
+
+
+class OutreachSafetyTests(unittest.TestCase):
+    def test_geographic_reporting_segments_are_not_named(self):
+        row = pd.Series({
+            "Company": "Example Co",
+            "FP_Candidate_Segment": "Japan Australia And New Zealand",
+            "FP_Candidate_Share_pct": 7.0,
+            "Co_Timing_Signal": "EXPLORATORY",
+            "Deleveraging_Intent": False,
+            "FP_Archetype": "strategic_pruner",
+        })
+        line = outreach.personalization(row)
+        self.assertNotIn("Japan Australia", line)
+        self.assertIn("non-core or underperforming business units", line)
+
+    def test_named_business_can_still_be_used(self):
+        row = pd.Series({
+            "Company": "Example Co",
+            "FP_Candidate_Segment": "Specialty Components",
+            "FP_Candidate_Share_pct": 20.0,
+            "Co_Timing_Signal": "EXPLORATORY",
+            "Deleveraging_Intent": float("nan"),
+            "FP_Archetype": "strategic_pruner",
+        })
+        line = outreach.personalization(row)
+        self.assertIn("Specialty Components", line)
+        self.assertIn("strategic alternatives", line)
+
+    def test_missing_deleveraging_is_not_treated_as_true(self):
+        row = pd.Series({
+            "Company": "Example Co",
+            "FP_Candidate_Segment": "Specialty Components",
+            "FP_Candidate_Share_pct": 20.0,
+            "Co_Timing_Signal": "PENDING",
+            "Deleveraging_Intent": float("nan"),
+            "FP_Archetype": "strategic_pruner",
+        })
+        line = outreach.personalization(row)
+        self.assertNotIn("reducing leverage", line)
 
 
 if __name__ == "__main__":

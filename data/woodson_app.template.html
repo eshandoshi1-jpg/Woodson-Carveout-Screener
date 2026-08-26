@@ -251,6 +251,20 @@ tbody tr.row.kbd{box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-
 .letter .lbody{padding:16px;white-space:pre-wrap;font-size:14px;line-height:1.6}
 .obtns{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
 .warnline{background:var(--warn-soft);color:var(--warn);border-radius:7px;padding:8px 12px;font-size:13px;margin-bottom:12px}
+.batchbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:11px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px}
+.batchbar .batchcount{font-weight:600;margin-right:auto}
+.batchnote{font-size:12.5px;color:var(--text-secondary)}
+.oselect{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.oselect:disabled{cursor:not-allowed;opacity:.45}
+.batchlist{display:flex;flex-direction:column;gap:12px}
+.batchitem{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.batchitem-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.batchitem-h .dealname{margin-right:auto}
+.batchmeta{display:flex;gap:14px;flex-wrap:wrap;margin-top:7px;font-size:12.5px;color:var(--text-secondary)}
+.batchitem details{margin-top:10px;border-top:1px solid var(--border);padding-top:9px}
+.batchitem summary{cursor:pointer;color:var(--link);font-weight:500}
+.batchitem .preview{white-space:pre-wrap;font-size:13px;line-height:1.55;margin-top:10px;color:var(--text-secondary)}
+.draftonly{background:var(--accent-soft);color:var(--accent);border-radius:7px;padding:9px 12px;font-size:13px;margin-bottom:14px}
 
 /* misc */
 .empty{text-align:center;padding:52px 20px;color:var(--text-secondary)}
@@ -330,9 +344,13 @@ const I={
   menu:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
 };
 
-let SENDER=localStorage.getItem("wci:sender")||"Joel Matthew";
+let SENDER=localStorage.getItem("wci:sender")||"Joel Mathew";
 let CONTACTED=JSON.parse(localStorage.getItem("wci:contacted")||"{}");
-const saveContacted=()=>localStorage.setItem("wci:contacted",JSON.stringify(CONTACTED));
+let SELECTED=new Set(JSON.parse(localStorage.getItem("wci:outreach-selected")||"[]"));
+const contactedCount=()=>Object.keys(CONTACTED).filter(id=>BY_ID[id]).length;
+const refreshContactedCount=()=>{const el=$("#contacted-count");if(el)el.textContent=contactedCount();};
+const saveContacted=()=>{localStorage.setItem("wci:contacted",JSON.stringify(CONTACTED));refreshContactedCount();};
+const saveSelected=()=>localStorage.setItem("wci:outreach-selected",JSON.stringify([...SELECTED]));
 function setTheme(m){localStorage.setItem("wci:theme",m);if(m==="system")document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme",m);}
 (function(){const m=localStorage.getItem("wci:theme")||"system";if(m!=="system")document.documentElement.setAttribute("data-theme",m);})();
 function cycleTheme(){const c=localStorage.getItem("wci:theme")||"system";setTheme(c==="system"?"light":c==="light"?"dark":"system");const b=$("#themebtn");if(b)b.innerHTML=(localStorage.getItem("wci:theme")==="dark")?I.moon:I.sun;}
@@ -346,6 +364,7 @@ function initData(snap){
     c._hay=[c.company,c.ticker,c.candidateDivision&&c.candidateDivision.name,c.contact&&c.contact.name,c.why].filter(Boolean).join(" ").toLowerCase();
     c._live=c.signals.filter(isLive);c._hard=c._live.filter(s=>s.hard);
   });
+  SELECTED=new Set([...SELECTED].filter(id=>BY_ID[id]));saveSelected();
   N_T1=COMPANIES.filter(c=>c.tier===1).length;
   N_T2=COMPANIES.filter(c=>c.tier===2).length;
   N_LIVE=COMPANIES.filter(c=>c._live.length).length;
@@ -388,6 +407,7 @@ function buildShell(){
        <a data-nav="pipeline" href="#/pipeline">Carveout Targets <span class="c">${COMPANIES.length.toLocaleString()}</span></a>
        <a data-nav="outreach" href="#/outreach">Outreach Queue <span class="c">${N_QUEUE}</span></a>
        <div class="grp-l">Saved Views</div>
+       <a data-saved="contacted" href="#/outreach?status=contacted">Contacted companies <span class="c" id="contacted-count">${contactedCount()}</span></a>
        <a href="#/pipeline?tier=1">Tier 1 targets <span class="c">${N_T1}</span></a>
        <a href="#/pipeline?tier=1,2">All targets <span class="c">${N_TARGETS}</span></a>
        <a href="#/pipeline?signal=held_for_sale">Held for sale <span class="c">${COMPANIES.filter(c=>c._live.some(s=>s.type==="held_for_sale")).length}</span></a>
@@ -407,11 +427,13 @@ function buildShell(){
 function render(){
   if(!$("#app .nav"))buildShell();
   const r=parseHash();
-  document.querySelectorAll(".side a[data-nav]").forEach(a=>a.classList.toggle("on",a.dataset.nav===r.view||(r.view==="company"&&a.dataset.nav==="pipeline")));
+  document.querySelectorAll(".side a[data-nav]").forEach(a=>a.classList.toggle("on",a.dataset.nav===r.view||(r.view==="company"&&a.dataset.nav==="pipeline")||(r.view==="outreach-batch"&&a.dataset.nav==="outreach")));
+  document.querySelectorAll(".side a[data-saved]").forEach(a=>a.classList.toggle("on",r.view==="outreach"&&r.q.get("status")===a.dataset.saved));
   const v=$("#view");
   if(r.view==="pipeline")renderPipeline(v,r.q);
   else if(r.view==="company")renderCompany(v,r.id);
   else if(r.view==="outreach")r.id?renderOutreachOne(v,r.id):renderOutreachList(v,r.q);
+  else if(r.view==="outreach-batch")renderOutreachBatch(v);
   else renderOverview(v);
   if(r.view!=="pipeline"){const g=$("#gq");if(g)g.value="";}
   $(".work").scrollTop=0;
@@ -654,45 +676,107 @@ function renderCompany(v,id){const c=BY_ID[id];
   v.innerHTML=`<div class="crumb"><a href="#/pipeline">Pipeline</a> / ${esc(c.company)}</div><div class="panel section-gap">${profileHtml(c,false)}</div>`;}
 
 /* ── OUTREACH ───────────────────────────────────────── */
+function outreachBlockReason(c){
+  if(!c.contact)return "Missing verified contact";
+  if(CONTACTED[c._id])return "Previously contacted";
+  if(c.signals.some(s=>s.hard&&!s.filing))return "Verify hard signal source";
+  if(!c.outreach||!c.outreach.body)return "Draft unavailable";
+  return null;
+}
+function outreachDivisionCell(c){
+  const d=c.candidateDivision;
+  if(c.outreach&&c.outreach.divisionNameSuppressed)return '<span class="muted">General portfolio review</span><br><span class="tag">Region suppressed</span>';
+  return d?esc(d.name):"\u2014";
+}
+function toggleOutreachSelection(id,checked){
+  const c=BY_ID[id];
+  if(!c||outreachBlockReason(c))return;
+  checked?SELECTED.add(id):SELECTED.delete(id);saveSelected();render();
+}
+function clearOutreachSelection(){SELECTED.clear();saveSelected();render();}
 function renderOutreachList(v,q){
   const mode=q.get("mode")||"recommended";
-  const eligible=c=>mode==="division"
+  const contactedOnly=q.get("status")==="contacted";
+  const eligible=c=>contactedOnly
+    ? !!CONTACTED[c._id]
+    : mode==="division"
     ? c.contact&&(c.hasFitDivision||c.hasPossibleFitDivision)&&(c.tier===1||c.tier===2||c.tier===3)
     : mode==="coverage"
       ? c.contact&&c.tier!=="watchlist"
       : c.contact&&(c.tier===1||c.tier===2||c.tier===3);
   const t=COMPANIES.filter(eligible)
-    .sort((a,b)=>(!!CONTACTED[a._id])-(!!CONTACTED[b._id])||Number(b.hasFitDivision)-Number(a.hasFitDivision)||Number(b.hasPossibleFitDivision)-Number(a.hasPossibleFitDivision)||b.score-a.score);
+    .sort((a,b)=>contactedOnly
+      ? new Date(CONTACTED[b._id].contactedAt).getTime()-new Date(CONTACTED[a._id].contactedAt).getTime()
+      : (!!CONTACTED[a._id])-(!!CONTACTED[b._id])||Number(b.hasFitDivision)-Number(a.hasFitDivision)||Number(b.hasPossibleFitDivision)-Number(a.hasPossibleFitDivision)||b.score-a.score);
   const notyet=t.filter(c=>!CONTACTED[c._id]).length;
   const confirmed=t.filter(c=>c.hasFitDivision).length;
   const possible=t.filter(c=>c.hasPossibleFitDivision&&!c.hasFitDivision).length;
-  const desc=mode==="division"
+  const desc=contactedOnly
+    ? "Every company marked as reached out to in this browser. Open a company to review its draft, recipient, evidence, and contacted date."
+    : mode==="division"
     ? `Division-specific prospects: ${confirmed} confirmed fits and ${possible} revenue-fit opportunities needing EBITDA verification.`
     : mode==="coverage"
       ? "Broad corporate coverage: all reachable companies except already-announced/watchlist situations. Drop-tier firms receive the generic portfolio-review email, not a claim that a particular division is for sale."
       : `Recommended outreach: every reachable Tier 1–3 company, including ${confirmed} confirmed fits and ${possible} revenue-fit opportunities. Firms without a qualified division receive evidence-led or generic exploratory outreach.`;
-  v.innerHTML=`<div class="crumb">Outreach</div><div class="ptitle"><h1>Firms to Contact</h1><div class="rt"><span class="count-note">${t.length} firms \u00b7 ${notyet} not yet contacted</span></div></div>
-    <div class="pills"><a class="pill ${mode==="recommended"?"on":""}" href="#/outreach">Recommended</a><a class="pill ${mode==="division"?"on":""}" href="#/outreach?mode=division">Division-specific</a><a class="pill ${mode==="coverage"?"on":""}" href="#/outreach?mode=coverage">Broad coverage</a></div>
+  const selectable=t.filter(c=>!outreachBlockReason(c));
+  const allSelected=selectable.length>0&&selectable.every(c=>SELECTED.has(c._id));
+  const pills=contactedOnly
+    ? '<div class="pills"><a class="pill on" href="#/outreach?status=contacted">Contacted</a><a class="pill" href="#/outreach">Back to outreach queue</a></div>'
+    : `<div class="pills"><a class="pill ${mode==="recommended"?"on":""}" href="#/outreach">Recommended</a><a class="pill ${mode==="division"?"on":""}" href="#/outreach?mode=division">Division-specific</a><a class="pill ${mode==="coverage"?"on":""}" href="#/outreach?mode=coverage">Broad coverage</a></div>`;
+  const batchbar=contactedOnly?"":`<div class="batchbar"><label><input class="oselect" id="osall" type="checkbox" ${allSelected?"checked":""} ${selectable.length?"":"disabled"}> Select all eligible in this view</label><span class="batchcount">${SELECTED.size} selected</span><button class="btn ghost" id="clearbatch" ${SELECTED.size?"":"disabled"}>Clear</button><button class="btn primary" id="reviewbatch" ${SELECTED.size?"":"disabled"}>Review selected</button></div>`;
+  v.innerHTML=`<div class="crumb">Outreach${contactedOnly?" / Contacted":""}</div><div class="ptitle"><h1>${contactedOnly?"Contacted Companies":"Firms to Contact"}</h1><div class="rt"><span class="count-note">${contactedOnly?`${t.length} marked contacted`:`${t.length} firms \u00b7 ${notyet} not yet contacted`}</span></div></div>
+    ${pills}
     <div class="ohelp">${desc}</div>
-    <div class="panel"><div class="gridwrap"><table><thead><tr><th>Company</th><th>Interesting division</th><th class="num">Div. rev.</th><th>Outreach basis</th><th>Tier</th><th>Contact</th><th>Evidence</th><th>Status</th><th></th></tr></thead>
-    <tbody>${t.map(c=>{const cd=CONTACTED[c._id];const et=c.outreach.evidenceTier;const d=c.candidateDivision;return `<tr class="row" onclick="go('#/outreach/${c._id}')">
+    ${batchbar}
+    <div class="panel"><div class="gridwrap"><table><thead><tr>${contactedOnly?"":'<th aria-label="Select"></th>'}<th>Company</th><th>Interesting division</th><th class="num">Div. rev.</th><th>Outreach basis</th><th>Tier</th><th>Contact</th><th>Evidence</th><th>Status</th><th></th></tr></thead>
+    <tbody>${t.map(c=>{const cd=CONTACTED[c._id];const et=c.outreach.evidenceTier;const d=c.candidateDivision;const block=outreachBlockReason(c);return `<tr class="row" onclick="go('#/outreach/${c._id}')">
+      ${contactedOnly?"":`<td onclick="event.stopPropagation()"><input class="oselect" type="checkbox" aria-label="Select ${esc(c.company)}" ${SELECTED.has(c._id)?"checked":""} ${block?"disabled":""} title="${esc(block||"Select for batch review")}" onchange="toggleOutreachSelection('${esc(c._id)}',this.checked)"></td>`}
       <td><span class="dealname">${esc(c.company)}</span>${c.ticker?`<span class="tick">${esc(c.ticker)}</span>`:""}</td>
-      <td>${d?esc(d.name):"\u2014"}</td><td class="num">${d?fmtUsd(d.revenueUsd):"\u2014"}</td>
+      <td>${outreachDivisionCell(c)}</td><td class="num">${d&&!c.outreach.divisionNameSuppressed?fmtUsd(d.revenueUsd):"\u2014"}</td>
       <td>${c.hasFitDivision?'<span class="mtag mtag-fit">Confirmed fit</span>':c.hasPossibleFitDivision?'<span class="mtag mtag-possible">Verify EBITDA</span>':d?'<span class="tag">Model candidate</span>':'<span class="tag">General outreach</span>'}</td>
       <td>${tierBadge(c.tier)}</td><td class="sec">${c.contact?esc(c.contact.name):'<span class="muted">No contact</span>'}</td>
       <td><span class="tierbadge tier${et}">${et==="A"?"Filed disclosure":et==="B"?"Model analysis":"Generic"}</span></td>
-      <td class="sec">${cd?`Contacted ${fmtDate(cd.contactedAt.slice(0,10))}`:'<span class="muted">Not contacted</span>'}</td>
-      <td class="num"><span class="dealname">Draft ${I.arr}</span></td></tr>`;}).join("")||'<tr><td colspan="9"><div class="empty">No firms match this outreach view.</div></td></tr>'}</tbody></table></div></div>`;
+      <td class="sec">${contactedOnly&&cd?`Contacted ${fmtDate(cd.contactedAt.slice(0,10))}`:block?esc(block):'<span class="muted">Ready for review</span>'}</td>
+      <td class="num"><span class="dealname">Draft ${I.arr}</span></td></tr>`;}).join("")||`<tr><td colspan="${contactedOnly?9:10}"><div class="empty">${contactedOnly?"No companies have been marked contacted yet.":"No firms match this outreach view."}</div></td></tr>`}</tbody></table></div></div>`;
+  if(!contactedOnly){
+    $("#osall").onchange=e=>{selectable.forEach(c=>e.target.checked?SELECTED.add(c._id):SELECTED.delete(c._id));saveSelected();render();};
+    $("#clearbatch").onclick=clearOutreachSelection;
+    $("#reviewbatch").onclick=()=>go("#/outreach-batch");
+  }
+}
+function renderOutreachBatch(v){
+  const selected=[...SELECTED].map(id=>BY_ID[id]).filter(Boolean).sort((a,b)=>b.score-a.score);
+  const ready=selected.filter(c=>!outreachBlockReason(c));
+  const blocked=selected.length-ready.length;
+  v.innerHTML=`<div class="crumb"><a href="#/outreach">Outreach Queue</a> / Batch review</div>
+    <div class="ptitle"><h1>Review selected drafts</h1><div class="rt"><span class="count-note">${ready.length} ready${blocked?` \u00b7 ${blocked} blocked`:""}</span></div></div>
+    <div class="draftonly"><strong>Draft-only mode.</strong> This page cannot send email. It is a safe review and export step while HubSpot and mailbox authorization are deferred.</div>
+    <div class="batchbar"><span class="batchcount">${selected.length} selected \u00b7 ${ready.length} exportable</span><a class="btn ghost" href="#/outreach">Back to queue</a><button class="btn ghost" id="clearreview" ${selected.length?"":"disabled"}>Clear selection</button><button class="btn primary" id="exportbatch" ${ready.length?"":"disabled"}>Download ready drafts</button></div>
+    <div class="batchlist">${selected.map(c=>{const block=outreachBlockReason(c),et=c.outreach.evidenceTier,body=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);return `<div class="batchitem">
+      <div class="batchitem-h"><span class="dealname">${esc(c.company)}</span>${tierBadge(c.tier)}<span class="tierbadge tier${et}">${et==="A"?"Filed disclosure":et==="B"?"Model analysis":"Generic"}</span>${block?`<span class="tag">Blocked: ${esc(block)}</span>`:'<span class="mtag mtag-fit">Ready</span>'}</div>
+      <div class="batchmeta"><span>${c.contact?esc(c.contact.name)+" \u00b7 "+esc(c.contact.email):"No contact"}</span><span>${c.outreach.divisionNameSuppressed?"Geographic segment removed from outreach":outreachDivisionCell(c)}</span></div>
+      <details><summary>Preview email</summary><div class="preview"><strong>Subject:</strong> ${esc(c.outreach.subject)}\n\n${esc(body)}</div></details>
+    </div>`;}).join("")||'<div class="empty"><div class="big">No companies selected.</div><a href="#/outreach">Return to the outreach queue</a></div>'}</div>`;
+  $("#clearreview").onclick=clearOutreachSelection;
+  $("#exportbatch").onclick=()=>downloadOutreachDrafts(ready);
+}
+function downloadOutreachDrafts(companies){
+  const q=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+  const rows=[["Company","Tier","Contact","Email","Subject","Email body"],...companies.map(c=>[c.company,tierLabel(c.tier),c.contact.name,c.contact.email,c.outreach.subject,c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER)])];
+  const blob=new Blob([rows.map(r=>r.map(q).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="woodson-outreach-drafts.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function outreachWhy(c){
   const d=c.candidateDivision;
-  const divBlock=d?`<div class="divblock"><div class="dn">${esc(d.name)}</div>
+  const divBlock=d&&!c.outreach.divisionNameSuppressed?`<div class="divblock"><div class="dn">${esc(d.name)}</div>
     <div class="divstats"><div><div class="k">Revenue</div><div class="v">${fmtUsd(d.revenueUsd)}</div></div>
       <div><div class="k">Op. margin</div><div class="v">${fmtPct(d.operatingMarginPct)}</div></div>
       <div><div class="k">% of parent</div><div class="v">${d.pctOfParentRevenue==null?"\u2014":Math.round(d.pctOfParentRevenue)+"%"}</div></div></div>
     <div style="margin-top:11px">${mtag(d.mandate)}</div>
     ${d.mandate&&d.mandate.verify?`<div class="warnline" style="margin-top:10px">Fits Woodson on revenue, but the division's EBITDA is not in the filings \u2014 confirm it clears the $6M floor before pitching.</div>`:""}
-    </div>${divContext(c)}`:'<div class="divblock muted">No specific division named \u2014 approach as a general portfolio review.</div>';
+    </div>${divContext(c)}`:c.outreach.divisionNameSuppressed
+      ? '<div class="divblock"><div class="dn">General portfolio review</div><div class="warnline" style="margin-top:10px;margin-bottom:0">The model candidate is a geographic reporting segment, so its name and financials are intentionally withheld from outreach.</div></div>'
+      : '<div class="divblock muted">No specific division named \u2014 approach as a general portfolio review.</div>';
   const sigs=c.signals.length?c.signals.map(sigDepth).join(""):'<span class="muted">Scored on portfolio structure; no filing-level signal.</span>';
   return `<div class="panel" style="padding:16px 18px;margin-bottom:18px">
     <div class="lbl" style="margin-top:0">What we would carve out</div>${divBlock}
@@ -717,10 +801,10 @@ function renderOutreachOne(v,id){const c=BY_ID[id];if(!c){v.innerHTML=`<div clas
     </div><div>
       ${c.contact?`<div class="lbl" style="margin-top:0">Recipient</div><div class="card"><div class="contact-name">${esc(c.contact.name)}</div><div class="contact-title">${esc(c.contact.title||"")} <span class="tag">${c.contact.function==="corp_dev"?"Corp Dev":"CFO"}</span></div><div class="cmail"><a href="mailto:${esc(c.contact.email)}">${esc(c.contact.email)}</a></div></div>`:'<div class="card muted">No verified contact.</div>'}
     </div></div>`;
-  $("#sender").addEventListener("input",e=>{SENDER=e.target.value||"Joel Matthew";localStorage.setItem("wci:sender",e.target.value);$("#ebody").textContent=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);});
+  $("#sender").addEventListener("input",e=>{SENDER=e.target.value||"Joel Mathew";localStorage.setItem("wci:sender",e.target.value);$("#ebody").textContent=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);});
   $("#cs").onclick=e=>copyText(c.outreach.subject,e.currentTarget,"Copy subject");
   $("#cb").onclick=e=>copyText(c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER),e.currentTarget,"Copy email");
-  $("#mk").onclick=()=>{if(CONTACTED[c._id])delete CONTACTED[c._id];else CONTACTED[c._id]={contactedAt:new Date().toISOString(),by:SENDER};saveContacted();render();};
+  $("#mk").onclick=()=>{if(CONTACTED[c._id])delete CONTACTED[c._id];else{CONTACTED[c._id]={contactedAt:new Date().toISOString(),by:SENDER};SELECTED.delete(c._id);saveSelected();}saveContacted();render();};
 }
 function copyText(t,btn,label){navigator.clipboard.writeText(t).then(()=>{const o=btn.innerHTML;btn.innerHTML=I.copy+" Copied";setTimeout(()=>btn.innerHTML=label?I.copy+" "+label:o,1500);}).catch(()=>{if(btn)btn.innerHTML=I.copy+" Copy failed";});}
 

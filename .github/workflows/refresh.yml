@@ -5,12 +5,26 @@ name: Refresh snapshot
 # Enable the `schedule` block once the Phase-2b incremental crawl lands in refresh.py.
 on:
   workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/refresh.yml"
+      - "refresh.py"
+      - "pipeline_incremental.py"
+      - "conditions_engine.py"
+      - "requirements.txt"
+      - "tests/**"
   schedule:
-    - cron: "30 10 * * 1-5"   # 06:30 ET, weekdays
-    - cron: "30 17 * * 1-5"   # 13:30 ET, weekdays
+    # Off-round minutes reduce GitHub's scheduled-run queue delays.
+    - cron: "17 10 * * 1-5"   # 06:17 ET, weekdays
+    - cron: "17 17 * * 1-5"   # 13:17 ET, weekdays
 
 permissions:
   contents: write
+
+concurrency:
+  group: woodson-refresh
+  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -22,19 +36,34 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install deps
-        run: pip install pandas openpyxl requests rapidfuzz
+        run: pip install -r requirements.txt
+      - name: Run correctness tests
+        run: python3 -m unittest discover -s tests -v
       - name: Refresh snapshot + web bundle
         env:
           SEC_USER_AGENT: "WoodsonEquity research@woodsonequity.com"   # firm email, not a person's
-        run: python3 refresh.py
+        run: |
+          for attempt in 1 2 3; do
+            if python3 refresh.py; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Refresh failed after 3 attempts."
+              exit 1
+            fi
+            delay=$((attempt * 60))
+            echo "::warning::Refresh attempt $attempt failed; retrying in ${delay}s."
+            sleep "$delay"
+          done
       - name: Commit if changed
         run: |
           git config user.name  "woodson-refresh[bot]"
           git config user.email "actions@users.noreply.github.com"
-          git add web/snapshot.json web/index.html data/snapshot.json data/woodson_enriched.xlsx data/state.json
+          git add web/snapshot.json web/index.html data/snapshot.json data/woodson_intelligence.html data/woodson_enriched.xlsx data/state.json
           if git diff --cached --quiet; then
             echo "No changes to publish."
           else
             git commit -m "refresh snapshot ($(date -u +%Y-%m-%dT%H:%MZ))"
-            git push
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi

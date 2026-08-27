@@ -57,6 +57,27 @@ class SignalPrecisionTests(unittest.TestCase):
             "The company lowered its full-year earnings guidance."))
 
 
+class CikResolutionTests(unittest.TestCase):
+    def test_resolve_cik_uses_installed_rapidfuzz_api(self):
+        previous = ce._CIK_INDEX
+        ce._CIK_INDEX = {
+            "EXAMPLE CORPORATION": {
+                "cik": "0000123456",
+                "ticker": "EXM",
+                "title": "Example Corporation",
+            }
+        }
+        try:
+            cik, ticker, score, title = ce.resolve_cik("Example Corp")
+        finally:
+            ce._CIK_INDEX = previous
+
+        self.assertEqual(cik, "0000123456")
+        self.assertEqual(ticker, "EXM")
+        self.assertEqual(score, 100)
+        self.assertEqual(title, "Example Corporation")
+
+
 class OutreachSafetyTests(unittest.TestCase):
     def test_geographic_reporting_segments_are_not_named(self):
         row = pd.Series({

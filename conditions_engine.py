@@ -33,6 +33,7 @@ from datetime import datetime, timedelta
 
 import requests
 import pandas as pd
+from rapidfuzz import fuzz, process as fuzz_process
 
 # ---------------------------------------------------------------------------
 # Config
@@ -112,7 +113,6 @@ def _normalize(name: str) -> str:
 
 
 def resolve_cik(company_name: str) -> Tuple[Optional[str], Optional[str], int, str]:
-    from thefuzz import fuzz, process as fuzz_process
     idx = _load_cik_index()
     names = list(idx.keys())
 
@@ -120,10 +120,13 @@ def resolve_cik(company_name: str) -> Tuple[Optional[str], Optional[str], int, s
     norm_names_map = {_normalize(n): n for n in names}
     norm_names = list(norm_names_map.keys())
 
-    best_norm, score = fuzz_process.extractOne(norm_input, norm_names, scorer=fuzz.token_set_ratio)
+    match = fuzz_process.extractOne(norm_input, norm_names, scorer=fuzz.token_set_ratio)
+    if match is None:
+        raise LookupError(f"No SEC company match for {company_name}")
+    best_norm, score, _choice_index = match
     original = norm_names_map[best_norm]
     entry = idx[original]
-    return entry["cik"], entry["ticker"], score, entry["title"]
+    return entry["cik"], entry["ticker"], int(round(score)), entry["title"]
 
 
 # ---------------------------------------------------------------------------

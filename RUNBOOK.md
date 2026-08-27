@@ -28,7 +28,7 @@ make it shared across users and devices.
 1. Open the GitHub repo → **Actions** tab → **"Refresh snapshot"**.
 2. Click **Run workflow** → **Run workflow**. _(screenshot: TODO — add after first run)_
 3. Wait for the green check. Vercel redeploys automatically; the URL shows the new date within a
-   minute. (Automatic twice-daily refresh turns on once the Phase-2b crawl is wired — see below.)
+   minute. The same refresh runs automatically twice each weekday.
 
 ## Who owns what
 - **GitHub repo** and **Vercel project** must live under **firm-owned accounts**, not a personal one.
@@ -43,11 +43,11 @@ The app is firm deal data at a URL. Turn on **Vercel Deployment Protection** (pa
 SSO. The `vercel.json` already sends `noindex`. Don't share the link outside the firm.
 
 ## What's automated vs. manual (current state)
-- **Automated:** publish loop — any data change committed by the workflow redeploys to the same URL.
-- **Manual for now:** the actual EDGAR re-crawl. Phase 2a ships the deploy + manual-refresh loop;
-  **Phase 2b** (the incremental daily-index pipeline that updates the data unattended, twice daily)
-  is the remaining engineering. Until it lands, "Run workflow" regenerates the site from the last
-  full build; a fresh full build is run from a workstation with `python3 build_pipeline.py`.
+- **Automated:** twice each weekday, the workflow reads new EDGAR daily indexes, rescans only affected
+  companies, publishes the updated snapshot, and lets Vercel redeploy the same URL. A failed refresh
+  is retried twice before the workflow is marked red.
+- **Manual fallback:** use **Run workflow** to start the same incremental refresh immediately. The full
+  universe rebuild remains a workstation-only maintenance operation (`python3 build_pipeline.py`).
 
 ## If something breaks
 - Amber chip / stale data → Run workflow again.

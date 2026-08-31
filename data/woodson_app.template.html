@@ -348,7 +348,9 @@ const I={
   menu:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
 };
 
-let SENDER=localStorage.getItem("wci:sender")||"Joel Mathew";
+const normalizeSender=v=>String(v||"").replace(/\bJoel\s+Matthew\b/gi,"Joel Mathew");
+let SENDER=normalizeSender(localStorage.getItem("wci:sender"))||"Joel Mathew";
+localStorage.setItem("wci:sender",SENDER);
 const loadStore=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback));}catch{return fallback;}};
 let CONTACTED=loadStore("wci:contacted",{});
 let SELECTED=new Set(loadStore("wci:outreach-selected",[]));
@@ -812,7 +814,7 @@ function renderOutreachOne(v,id){const c=BY_ID[id];if(!c){v.innerHTML=`<div clas
     </div><div>
       ${c.contact?`<div class="lbl" style="margin-top:0">Recipient</div><div class="card"><div class="contact-name">${esc(c.contact.name)}</div><div class="contact-title">${esc(c.contact.title||"")} <span class="tag">${c.contact.function==="corp_dev"?"Corp Dev":"CFO"}</span></div><div class="cmail"><a href="mailto:${esc(c.contact.email)}">${esc(c.contact.email)}</a></div></div>`:'<div class="card muted">No verified contact.</div>'}
     </div></div>`;
-  $("#sender").addEventListener("input",e=>{SENDER=e.target.value||"Joel Mathew";localStorage.setItem("wci:sender",e.target.value);$("#ebody").textContent=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);});
+  $("#sender").addEventListener("input",e=>{SENDER=normalizeSender(e.target.value)||"Joel Mathew";if(e.target.value!==SENDER)e.target.value=SENDER;localStorage.setItem("wci:sender",SENDER);$("#ebody").textContent=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);});
   $("#cs").onclick=e=>copyText(c.outreach.subject,e.currentTarget,"Copy subject");
   $("#cb").onclick=e=>copyText(c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER),e.currentTarget,"Copy email");
   $("#mk").onclick=()=>{if(contactedFor(c))delete CONTACTED[c._contactKey];else{CONTACTED[c._contactKey]={contactedAt:new Date().toISOString(),by:SENDER};SELECTED.delete(c._id);saveSelected();}saveContacted();render();};

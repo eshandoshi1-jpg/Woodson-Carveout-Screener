@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
@@ -130,6 +131,12 @@ class IncrementalRefreshTests(unittest.TestCase):
 
 
 class OutreachSafetyTests(unittest.TestCase):
+    def test_sender_spelling_and_saved_browser_typo_migration(self):
+        self.assertEqual(outreach.SENDER, "Joel Mathew")
+        template = Path("data/woodson_app.template.html").read_text()
+        self.assertIn('replace(/\\bJoel\\s+Matthew\\b/gi,"Joel Mathew")', template)
+        self.assertNotIn('||"Joel Matthew"', template)
+
     def test_generated_email_has_no_em_dash_or_narrow_sector_claim(self):
         row = pd.Series({
             "Company": "Example Co",

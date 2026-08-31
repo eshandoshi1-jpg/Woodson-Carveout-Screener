@@ -18,9 +18,13 @@ outreach contact. The front end is a single self-contained web app.
 - `build_web.py` → rebuilds `web/index.html` + `web/snapshot.json` from `data/woodson_app.template.html`.
 - The Outreach Queue supports safe multi-select, batch review, CSV draft export, and a sidebar
   view of companies marked contacted. It never sends email.
+- Banker Relationships contains 518 investment banks and 1,914 banker contacts, with firm and person
+  pages for priority, owner, coverage, status, last touch, next follow-up, notes, outreach drafts, and
+  activity export. The supplied firm list is classified as 391 Tier 4 banks; all other firms are the
+  127 Tier 3 banks. Relationship activity is browser-local until a shared CRM connection is available.
 - `build_pipeline.py` — the full (slow) rebuild of the whole universe; run locally, not in CI.
 - Committed inputs (no external files needed at refresh time): `data/universe.csv` (CIK filter + re-scan
-  inputs), `data/contacts.csv` (the rolodex).
+  inputs), `data/contacts.csv` (the corporate rolodex), and `data/banker_crm.json` (the banker directory).
 
 ## Refresh
 - **Automatic:** `.github/workflows/refresh.yml` runs `refresh.py` every morning at 06:17 ET, plus a

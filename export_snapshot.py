@@ -26,10 +26,32 @@ import outreach as O
 
 ENRICHED = "data/woodson_enriched.xlsx"
 OUT = "data/snapshot.json"
+BANKER_CRM = "data/banker_crm.json"
 UNIVERSE_SCANNED = 1107          # total companies the full run scanned (incl. unresolved)
 
 # signal type -> (hard?, Factor_Links_JSON key or None)
 HARD = {"held_for_sale", "activist_13d", "exploring_alternatives"}
+
+
+def load_banker_crm(path=BANKER_CRM):
+    """Load the static banker directory and validate its front-end contract."""
+    p = Path(path)
+    if not p.exists():
+        return {"meta": {"bankCount": 0, "bankerCount": 0}, "banks": [], "bankers": []}
+    data = json.loads(p.read_text())
+    banks, bankers = data.get("banks", []), data.get("bankers", [])
+    if data.get("meta", {}).get("bankCount") != len(banks):
+        raise ValueError("banker CRM bank count does not match its records")
+    if data.get("meta", {}).get("bankerCount") != len(bankers):
+        raise ValueError("banker CRM contact count does not match its records")
+    bank_ids = {bank.get("id") for bank in banks}
+    if len(bank_ids) != len(banks) or any(person.get("bankId") not in bank_ids for person in bankers):
+        raise ValueError("banker CRM contains duplicate or orphaned records")
+    tier3 = sum(bank.get("tier") == 3 for bank in banks)
+    tier4 = sum(bank.get("tier") == 4 for bank in banks)
+    if tier3 != 127 or tier4 != 391 or tier3 + tier4 != len(banks):
+        raise ValueError("banker CRM tiering must contain 127 Tier 3 and 391 Tier 4 banks")
+    return data
 
 
 def _num(x):
@@ -319,6 +341,7 @@ def main():
                         "byForm": lc.get("byForm"), "sources": "10-K / 10-Q / 8-K / SC 13D/G"}
         except Exception:
             pass
+    banker_crm = load_banker_crm()
     snap = {
         "meta": {
             "generatedAt": mtime.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -329,6 +352,7 @@ def main():
         },
         "changes": changes[:12],
         "companies": companies,
+        "bankerCRM": banker_crm,
     }
     Path(OUT).parent.mkdir(exist_ok=True)
     with open(OUT, "w") as f:
@@ -344,6 +368,7 @@ def main():
     print(f"wrote {OUT}: {len(companies)} companies | {Path(OUT).stat().st_size/1e6:.2f} MB")
     print(f"  Tier1={t1} Tier2={t2} | with division={withdiv} contact={withcon} signal={withsig}")
     print(f"  signal-type counts: {dict(sig)}")
+    print(f"  banker CRM: {len(banker_crm['banks'])} banks | {len(banker_crm['bankers'])} contacts")
 
 
 if __name__ == "__main__":

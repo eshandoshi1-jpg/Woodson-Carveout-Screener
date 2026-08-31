@@ -57,6 +57,30 @@ class MandateTests(unittest.TestCase):
         self.assertFalse(result["verify"])
 
 
+class BankerCRMTests(unittest.TestCase):
+    def test_banker_directory_contract(self):
+        crm = snapshot.load_banker_crm()
+        self.assertEqual(crm["meta"]["bankCount"], 518)
+        self.assertEqual(crm["meta"]["bankerCount"], 1914)
+        bank_ids = {bank["id"] for bank in crm["banks"]}
+        banker_ids = {person["id"] for person in crm["bankers"]}
+        self.assertEqual(len(bank_ids), 518)
+        self.assertEqual(len(banker_ids), 1914)
+        self.assertTrue(all(person["bankId"] in bank_ids for person in crm["bankers"]))
+        self.assertEqual(sum(bank["tier"] == 3 for bank in crm["banks"]), 127)
+        self.assertEqual(sum(bank["tier"] == 4 for bank in crm["banks"]), 391)
+        self.assertEqual(crm["meta"]["tier3BankCount"], 127)
+        self.assertEqual(crm["meta"]["tier4BankCount"], 391)
+
+    def test_banker_outreach_template_is_present_and_current(self):
+        template = Path("data/woodson_app.template.html").read_text()
+        self.assertIn('BANKER_SUBJECT="Intro to Woodson Equity"', template)
+        self.assertIn("offices in Chicago and DC", template)
+        self.assertIn("greater than $10M in EBITDA", template)
+        self.assertIn("Joel Mathew", template)
+        self.assertNotIn("Joel Matthew", template.replace("Joel\\s+Matthew", ""))
+
+
 class SignalPrecisionTests(unittest.TestCase):
     def test_generic_earnings_decline_is_not_guidance_cut(self):
         self.assertFalse(ce._has_explicit_guidance_or_dividend_cut(

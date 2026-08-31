@@ -4,9 +4,11 @@ One page, for whoever owns this after the analyst. No coding required to operate
 
 ## What it is
 A private web tool that screens public companies for likely divestitures, names the division,
-links each signal to its SEC filing, and attaches the outreach contact. Three tabs: **Overview**
-(what we've found), **Explorer** (search all companies), **Outreach** (review individual drafts or
-select several firms and download a reviewed draft batch — nothing sends).
+links each signal to its SEC filing, attaches the outreach contact, and manages investment-banker
+relationships. **Overview**, **Carveout Targets**, and **Outreach Queue** handle corporate outreach.
+**Investment Banks** and **Bankers** organize 518 firms and 1,914 individual banker contacts.
+The supplied firm list is Tier 4 (391 banks); every remaining firm is Tier 3 (127 banks). Tier views
+are available in the Relationships section and bankers inherit their firm's tier.
 
 Geographic reporting segments are intentionally withheld from outreach language. Those firms remain
 available for general portfolio-review outreach, but the region itself is not described as non-core.
@@ -14,6 +16,12 @@ available for general portfolio-review outreach, but the region itself is not de
 When a draft is marked contacted, the company appears under **Saved Views → Contacted companies** in
 the sidebar. That status currently belongs to the browser that marked it; the future HubSpot sync will
 make it shared across users and devices.
+
+Banker pages include the approved introductory draft, relationship status, priority, owner, coverage,
+last contact, next follow-up, and notes. Marking a banker contacted creates a follow-up 14 days later.
+Use **Download activity** as a backup because banker relationship history also belongs to the browser
+until the shared HubSpot or database connection is available. The outdated firm overview is not stored
+in the tracker; attach an updated overview before using the banker draft's attachment language.
 
 ## The URL
 - **App:** https://woodson-carveout-screener.vercel.app/

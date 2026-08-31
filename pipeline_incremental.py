@@ -99,20 +99,32 @@ def scan_daily_index(since: dt.date, until: dt.date, cikset: set):
     return hits, byform, index_days, filings
 
 
-def rescan(affected_names, name2rev):
-    """Re-scan the affected companies through the full per-company chain -> enriched rows."""
-    companies = [(n, name2rev.get(n, 0)) for n in affected_names]
+def _rescan_one(name, revenue, index):
+    """Run one company through the enrichment chain so failures stay isolated."""
     BUILD.mkdir(parents=True, exist_ok=True)
     scan = pipeline.run_full_pipeline(
-        companies, output_path=str(BUILD / "inc_scan.xlsx"),
-        checkpoint_a1=str(BUILD / "inc_a1.xlsx"), checkpoint_a2=str(BUILD / "inc_a2.xlsx"),
-        batch_size=50)
+        [(name, revenue)], output_path=str(BUILD / f"inc_scan_{index:04d}.xlsx"),
+        checkpoint_a1=str(BUILD / f"inc_a1_{index:04d}.xlsx"),
+        checkpoint_a2=str(BUILD / f"inc_a2_{index:04d}.xlsx"), batch_size=1)
     df = bp.stage_enrich(scan)
     df = bp.stage_region(df)
     df = bp.stage_links(df)
     df = bp.stage_upgrade(df)
     df = bp.stage_fingerprint(df)
     return df
+
+
+def rescan(affected_names, name2rev):
+    """Re-scan affected companies without letting one bad filing stop the daily publish."""
+    frames = []
+    for index, name in enumerate(affected_names, 1):
+        try:
+            fresh = _rescan_one(name, name2rev.get(name, 0), index)
+            if fresh is not None and not fresh.empty:
+                frames.append(fresh)
+        except Exception as exc:
+            log.exception(f"[incremental] rescan failed for {name}; preserving prior rows: {exc}")
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
 def main():
@@ -146,18 +158,22 @@ def main():
         # A transient SEC failure must not replace a previously good company with
         # a failed/empty rescan. Only publish companies with a successful segment scan.
         good_status = {"XBRL"}
-        good_names = set(fresh.loc[fresh["Parse_Status"].isin(good_status), "Company"])
+        good_names = (set(fresh.loc[fresh["Parse_Status"].isin(good_status), "Company"])
+                      if not fresh.empty and "Parse_Status" in fresh.columns else set())
         failed_names = set(affected) - good_names
         if failed_names:
             log.warning(f"[incremental] preserving prior rows for {len(failed_names)} failed rescans")
-        fresh = fresh[fresh["Company"].isin(good_names)]
-        keep = existing[~existing["Company"].isin(good_names)]
-        prev = REPO / "data" / "woodson_enriched_prev.xlsx"
-        shutil.copy2(ENRICHED, prev)
-        merged = pd.concat([keep, fresh.reindex(columns=existing.columns)], ignore_index=True)
-        merged.to_excel(ENRICHED, index=False)
-        log.info(f"[incremental] merged {fresh['Company'].nunique()} refreshed companies; "
-                 f"dataset now {merged['Company'].nunique()} companies")
+        if good_names:
+            fresh = fresh[fresh["Company"].isin(good_names)]
+            keep = existing[~existing["Company"].isin(good_names)]
+            prev = REPO / "data" / "woodson_enriched_prev.xlsx"
+            shutil.copy2(ENRICHED, prev)
+            merged = pd.concat([keep, fresh.reindex(columns=existing.columns)], ignore_index=True)
+            merged.to_excel(ENRICHED, index=False)
+            log.info(f"[incremental] merged {fresh['Company'].nunique()} refreshed companies; "
+                     f"dataset now {merged['Company'].nunique()} companies")
+        else:
+            log.warning("[incremental] no successful rescans; publishing prior company rows")
 
     st["highWater"] = until.isoformat()
     st["lastRun"] = dt.datetime.utcnow().isoformat() + "Z"

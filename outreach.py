@@ -27,6 +27,7 @@ import contacts as C
 
 SENDER = "Joel Mathew"          # per the boss's template; swap per sender
 FROM_FIRM = "Woodson Equity"
+SUBJECT = "Woodson Equity: carveout / divestiture inquiry"
 NAME_MAX_SHARE = 45.0           # above this % of parent, the "division" is ~core — don't name it
 ENRICHED = "data/woodson_enriched.xlsx"
 OUT = "data/outreach_drafts.csv"
@@ -97,13 +98,13 @@ def personalization(r) -> str:
     tail = "an operationally focused partner that can move expeditiously"
 
     if hfs:
-        return (f"In reviewing your recent filings, we noted a business classified as held-for-sale — "
+        return (f"In reviewing your recent filings, we noted a business classified as held-for-sale, "
                 f"exactly the kind of situation where {tail} can add value.")
     if exploring and nameable:
         return (f"In reviewing your recent filings, we saw a review of strategic alternatives underway, "
                 f"and {div} looks like a natural carveout candidate for {tail}.")
     if delever and nameable:
-        return (f"In reviewing your recent filings, we noted a focus on reducing leverage — and {div} "
+        return (f"In reviewing your recent filings, we noted a focus on reducing leverage, and {div} "
                 f"stood out as a business that may be non-core to that path, and a candidate for a "
                 f"carveout to {tail}.")
     if delever:
@@ -111,7 +112,7 @@ def personalization(r) -> str:
                 f"ask whether there are non-core units you'd consider divesting to {tail}.")
     if nameable and pruner:
         return (f"In reviewing your segment financials, {div} stood out as potentially non-core relative "
-                f"to the rest of the portfolio — the kind of unit that benefits from {tail}.")
+                f"to the rest of the portfolio. It is the kind of unit that benefits from {tail}.")
     # generic (boss's original line) — safe default
     return (f"I'm reaching out to see if {company} has any non-core or underperforming business units "
             f"in need of {tail}.")
@@ -123,9 +124,9 @@ def build_email(r) -> str:
     lst = _list_phrase(r.get("source"))
     body = (
         f"Hi {first},\n\n"
-        f"My name is {SENDER} from {FROM_FIRM}. We are a private equity firm focused on Industrials "
-        f"and Manufacturing, based in Washington, D.C. We have an extensive and successful track record "
-        f"of working with corporate sellers on carveouts and divestitures.\n\n"
+        f"My name is {SENDER} from {FROM_FIRM}. We are a private equity firm based in Washington, D.C., "
+        f"with an extensive and successful track record of working with corporate sellers on carveouts "
+        f"and divestitures.\n\n"
         f"I found {company} when searching through {lst}. {personalization(r)}\n\n"
         f"One example: last year we executed a complex corporate carveout from a public company and "
         f"closed the deal in 35 days, and within the first 100 days we were off of the TSA. We have a "
@@ -134,7 +135,8 @@ def build_email(r) -> str:
         f"Please advise on who from your team I should speak with regarding the above.\n\n"
         f"Thanks,\n\n{SENDER}"
     )
-    return body
+    # Email copy intentionally avoids typographic dashes for a plainer, human-written style.
+    return body.replace("\u2014", "-").replace("\u2013", "-")
 
 
 def build_drafts(path=ENRICHED, tiers=("Tier 1", "Tier 2")) -> pd.DataFrame:
@@ -149,7 +151,7 @@ def build_drafts(path=ENRICHED, tiers=("Tier 1", "Tier 2")) -> pd.DataFrame:
     t = t.merge(rolo, left_on="_jk", right_on="join_key", how="left").drop(columns=["_jk", "join_key"])
     t = t[t["primary_email"].fillna("") != ""]          # only targets we can actually reach
     t = t.sort_values("Propensity_Score", ascending=False)
-    t["subject"] = "Woodson Equity — carveout / divestiture inquiry"
+    t["subject"] = SUBJECT
     t["email_body"] = t.apply(build_email, axis=1)
     return t
 

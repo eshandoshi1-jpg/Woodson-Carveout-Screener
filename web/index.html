@@ -288,6 +288,10 @@ noscript{display:block;padding:40px;text-align:center}
 
 <script>
 "use strict";
+const PRODUCTION_HOST="woodson-carveout-screener.vercel.app";
+if(location.hostname.endsWith(".vercel.app")&&location.hostname!==PRODUCTION_HOST){
+  location.replace(`https://${PRODUCTION_HOST}${location.pathname}${location.search}${location.hash}`);
+}
 const SNAP_SRC = "fetch";
 let META, COMPANIES, CHANGES=[];
 
@@ -345,12 +349,16 @@ const I={
 };
 
 let SENDER=localStorage.getItem("wci:sender")||"Joel Mathew";
-let CONTACTED=JSON.parse(localStorage.getItem("wci:contacted")||"{}");
-let SELECTED=new Set(JSON.parse(localStorage.getItem("wci:outreach-selected")||"[]"));
-const contactedCount=()=>Object.keys(CONTACTED).filter(id=>BY_ID[id]).length;
+const loadStore=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback));}catch{return fallback;}};
+let CONTACTED=loadStore("wci:contacted",{});
+let SELECTED=new Set(loadStore("wci:outreach-selected",[]));
+const contactKeyOf=c=>"company:"+slug(c.company);
+const contactedFor=c=>CONTACTED[c._contactKey||contactKeyOf(c)];
+const contactedCount=()=>COMPANIES?COMPANIES.filter(c=>!!contactedFor(c)).length:0;
 const refreshContactedCount=()=>{const el=$("#contacted-count");if(el)el.textContent=contactedCount();};
 const saveContacted=()=>{localStorage.setItem("wci:contacted",JSON.stringify(CONTACTED));refreshContactedCount();};
 const saveSelected=()=>localStorage.setItem("wci:outreach-selected",JSON.stringify([...SELECTED]));
+window.addEventListener("storage",e=>{if(e.key==="wci:contacted"){CONTACTED=loadStore("wci:contacted",{});if(COMPANIES)render();}});
 function setTheme(m){localStorage.setItem("wci:theme",m);if(m==="system")document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme",m);}
 (function(){const m=localStorage.getItem("wci:theme")||"system";if(m!=="system")document.documentElement.setAttribute("data-theme",m);})();
 function cycleTheme(){const c=localStorage.getItem("wci:theme")||"system";setTheme(c==="system"?"light":c==="light"?"dark":"system");const b=$("#themebtn");if(b)b.innerHTML=(localStorage.getItem("wci:theme")==="dark")?I.moon:I.sun;}
@@ -359,11 +367,14 @@ const BY_ID={};
 let N_T1,N_T2,N_LIVE,N_CONTACT,N_TARGETS,N_QUEUE,TIER_COUNTS;
 function initData(snap){
   META=snap.meta; COMPANIES=snap.companies; CHANGES=snap.changes||[];
+  let contactedMigrated=false;
   COMPANIES.forEach(c=>{
-    c._id=idOf(c);BY_ID[c._id]=c;
+    c._id=idOf(c);c._contactKey=contactKeyOf(c);BY_ID[c._id]=c;
+    if(CONTACTED[c._id]&&!CONTACTED[c._contactKey]){CONTACTED[c._contactKey]=CONTACTED[c._id];delete CONTACTED[c._id];contactedMigrated=true;}
     c._hay=[c.company,c.ticker,c.candidateDivision&&c.candidateDivision.name,c.contact&&c.contact.name,c.why].filter(Boolean).join(" ").toLowerCase();
     c._live=c.signals.filter(isLive);c._hard=c._live.filter(s=>s.hard);
   });
+  if(contactedMigrated)saveContacted();
   SELECTED=new Set([...SELECTED].filter(id=>BY_ID[id]));saveSelected();
   N_T1=COMPANIES.filter(c=>c.tier===1).length;
   N_T2=COMPANIES.filter(c=>c.tier===2).length;
@@ -641,7 +652,7 @@ function divRationale(c){
   return `<b>${esc(d.name)}</b> is the lowest-fit division relative to the parent's core, on the segment economics above.`;
 }
 function profileHtml(c,inline){
-  const d=c.candidateDivision,con=c.contact,cd=CONTACTED[c._id];
+  const d=c.candidateDivision,con=c.contact,cd=contactedFor(c);
   const arch=c.archetype==="pruner"?"Strategic pruner":c.archetype==="forced_seller"?"Balance-sheet-forced seller":null;
   const tip=c.archetype==="pruner"?"Sells its sub-scale, underperforming orphan.":"Sells its most marketable division to reduce debt.";
   const sigs=c.signals.length?c.signals.map(sigDepth).join(""):'<span class="muted">No signals flagged.</span>';
@@ -678,7 +689,7 @@ function renderCompany(v,id){const c=BY_ID[id];
 /* ── OUTREACH ───────────────────────────────────────── */
 function outreachBlockReason(c){
   if(!c.contact)return "Missing verified contact";
-  if(CONTACTED[c._id])return "Previously contacted";
+  if(contactedFor(c))return "Previously contacted";
   if(c.signals.some(s=>s.hard&&!s.filing))return "Verify hard signal source";
   if(!c.outreach||!c.outreach.body)return "Draft unavailable";
   return null;
@@ -698,7 +709,7 @@ function renderOutreachList(v,q){
   const mode=q.get("mode")||"recommended";
   const contactedOnly=q.get("status")==="contacted";
   const eligible=c=>contactedOnly
-    ? !!CONTACTED[c._id]
+    ? !!contactedFor(c)
     : mode==="division"
     ? c.contact&&(c.hasFitDivision||c.hasPossibleFitDivision)&&(c.tier===1||c.tier===2||c.tier===3)
     : mode==="coverage"
@@ -706,9 +717,9 @@ function renderOutreachList(v,q){
       : c.contact&&(c.tier===1||c.tier===2||c.tier===3);
   const t=COMPANIES.filter(eligible)
     .sort((a,b)=>contactedOnly
-      ? new Date(CONTACTED[b._id].contactedAt).getTime()-new Date(CONTACTED[a._id].contactedAt).getTime()
-      : (!!CONTACTED[a._id])-(!!CONTACTED[b._id])||Number(b.hasFitDivision)-Number(a.hasFitDivision)||Number(b.hasPossibleFitDivision)-Number(a.hasPossibleFitDivision)||b.score-a.score);
-  const notyet=t.filter(c=>!CONTACTED[c._id]).length;
+      ? new Date(contactedFor(b).contactedAt).getTime()-new Date(contactedFor(a).contactedAt).getTime()
+      : (!!contactedFor(a))-(!!contactedFor(b))||Number(b.hasFitDivision)-Number(a.hasFitDivision)||Number(b.hasPossibleFitDivision)-Number(a.hasPossibleFitDivision)||b.score-a.score);
+  const notyet=t.filter(c=>!contactedFor(c)).length;
   const confirmed=t.filter(c=>c.hasFitDivision).length;
   const possible=t.filter(c=>c.hasPossibleFitDivision&&!c.hasFitDivision).length;
   const desc=contactedOnly
@@ -729,7 +740,7 @@ function renderOutreachList(v,q){
     <div class="ohelp">${desc}</div>
     ${batchbar}
     <div class="panel"><div class="gridwrap"><table><thead><tr>${contactedOnly?"":'<th aria-label="Select"></th>'}<th>Company</th><th>Interesting division</th><th class="num">Div. rev.</th><th>Outreach basis</th><th>Tier</th><th>Contact</th><th>Evidence</th><th>Status</th><th></th></tr></thead>
-    <tbody>${t.map(c=>{const cd=CONTACTED[c._id];const et=c.outreach.evidenceTier;const d=c.candidateDivision;const block=outreachBlockReason(c);return `<tr class="row" onclick="go('#/outreach/${c._id}')">
+    <tbody>${t.map(c=>{const cd=contactedFor(c);const et=c.outreach.evidenceTier;const d=c.candidateDivision;const block=outreachBlockReason(c);return `<tr class="row" onclick="go('#/outreach/${c._id}')">
       ${contactedOnly?"":`<td onclick="event.stopPropagation()"><input class="oselect" type="checkbox" aria-label="Select ${esc(c.company)}" ${SELECTED.has(c._id)?"checked":""} ${block?"disabled":""} title="${esc(block||"Select for batch review")}" onchange="toggleOutreachSelection('${esc(c._id)}',this.checked)"></td>`}
       <td><span class="dealname">${esc(c.company)}</span>${c.ticker?`<span class="tick">${esc(c.ticker)}</span>`:""}</td>
       <td>${outreachDivisionCell(c)}</td><td class="num">${d&&!c.outreach.divisionNameSuppressed?fmtUsd(d.revenueUsd):"\u2014"}</td>
@@ -785,7 +796,7 @@ function outreachWhy(c){
   </div>`;
 }
 function renderOutreachOne(v,id){const c=BY_ID[id];if(!c){v.innerHTML=`<div class="empty"><div class="big">Not found.</div></div>`;return;}
-  const et=c.outreach.evidenceTier,cd=CONTACTED[c._id];const hardNoLink=c.signals.some(s=>s.hard&&!s.filing);
+  const et=c.outreach.evidenceTier,cd=contactedFor(c);const hardNoLink=c.signals.some(s=>s.hard&&!s.filing);
   const body=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);
   v.innerHTML=`<div class="crumb"><a href="#/outreach">Outreach Queue</a> / ${esc(c.company)}</div>
     <div class="ptitle"><h1 style="font-size:22px">${esc(c.company)}</h1><div class="rt sec" style="align-self:center">${c.contact?esc(c.contact.name)+" \u00b7 "+esc(c.contact.title||""):"No contact on file"}</div></div>
@@ -804,7 +815,7 @@ function renderOutreachOne(v,id){const c=BY_ID[id];if(!c){v.innerHTML=`<div clas
   $("#sender").addEventListener("input",e=>{SENDER=e.target.value||"Joel Mathew";localStorage.setItem("wci:sender",e.target.value);$("#ebody").textContent=c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER);});
   $("#cs").onclick=e=>copyText(c.outreach.subject,e.currentTarget,"Copy subject");
   $("#cb").onclick=e=>copyText(c.outreach.body.replace(/\{\{SENDER\}\}/g,SENDER),e.currentTarget,"Copy email");
-  $("#mk").onclick=()=>{if(CONTACTED[c._id])delete CONTACTED[c._id];else{CONTACTED[c._id]={contactedAt:new Date().toISOString(),by:SENDER};SELECTED.delete(c._id);saveSelected();}saveContacted();render();};
+  $("#mk").onclick=()=>{if(contactedFor(c))delete CONTACTED[c._contactKey];else{CONTACTED[c._contactKey]={contactedAt:new Date().toISOString(),by:SENDER};SELECTED.delete(c._id);saveSelected();}saveContacted();render();};
 }
 function copyText(t,btn,label){navigator.clipboard.writeText(t).then(()=>{const o=btn.innerHTML;btn.innerHTML=I.copy+" Copied";setTimeout(()=>btn.innerHTML=label?I.copy+" "+label:o,1500);}).catch(()=>{if(btn)btn.innerHTML=I.copy+" Copy failed";});}
 

@@ -66,10 +66,10 @@ def parse_parent_yoy(notes: str):
 
 
 def add_yoy_flags(df: pd.DataFrame) -> pd.DataFrame:
-    yoy = df["Parent_Notes"].apply(parse_parent_yoy)
+    yoy = pd.to_numeric(df["Parent_Notes"].apply(parse_parent_yoy), errors="coerce")
     df["Parent_YoY_pct"] = yoy
     df["YoY_Meaningful"] = yoy.apply(
-        lambda v: bool(v is not None and abs(v) <= YOY_MEANINGFUL_LIMIT)
+        lambda v: bool(pd.notna(v) and abs(v) <= YOY_MEANINGFUL_LIMIT)
     )
     distorted = int(((yoy.notna()) & (yoy.abs() > YOY_MEANINGFUL_LIMIT)).sum())
     log.info(f"Revenue YoY flagged non-meaningful (acquisition-distorted): {distorted} rows")

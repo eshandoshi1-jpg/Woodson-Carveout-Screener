@@ -281,10 +281,10 @@ def main():
             "signals": signals,
             "contact": contact,
             "outreach": {"evidenceTier": evidence_tier(signals, bool(div_name) and not geographic_candidate),
-                         "subject": "Woodson Equity — carveout / divestiture inquiry",
+                         "subject": O.SUBJECT,
                          "body": body,
                          "divisionNameSuppressed": geographic_candidate,
-                         "suppressionReason": ("Geographic reporting segment — use general portfolio outreach"
+                         "suppressionReason": ("Geographic reporting segment; use general portfolio outreach"
                                                if geographic_candidate else None)},
         })
 

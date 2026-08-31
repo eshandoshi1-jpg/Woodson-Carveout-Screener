@@ -23,8 +23,9 @@ outreach contact. The front end is a single self-contained web app.
   inputs), `data/contacts.csv` (the rolodex).
 
 ## Refresh
-- **Automatic:** `.github/workflows/refresh.yml` runs `refresh.py` twice daily (06:17 & 13:17 ET) and
-  commits the new snapshot; Vercel auto-deploys. Enable Actions on the repo for this to run.
+- **Automatic:** `.github/workflows/refresh.yml` runs `refresh.py` every morning at 06:17 ET, plus a
+  13:17 ET weekday backup, and commits the new snapshot; Vercel auto-deploys. Saturday morning catches
+  the finalized Friday SEC index. Enable Actions on the repo for this to run.
 - **Manual:** GitHub → Actions → "Refresh snapshot" → Run workflow. Or locally: `python3 refresh.py`.
 
 ## Requirements

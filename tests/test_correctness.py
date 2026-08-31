@@ -1,14 +1,23 @@
 import unittest
+from unittest.mock import patch
 
 import pandas as pd
 
 import conditions_engine as ce
+import enrich_master as enrich
 import export_snapshot as snapshot
 import fingerprint_pick as picker
 import outreach
+import pipeline_incremental as incremental
 
 
 class TruthHandlingTests(unittest.TestCase):
+    def test_missing_parent_yoy_is_numeric_safe(self):
+        frame = pd.DataFrame([{"Parent_Notes": "rev trend: data unavailable"}])
+        result = enrich.add_yoy_flags(frame)
+        self.assertTrue(pd.isna(result.loc[0, "Parent_YoY_pct"]))
+        self.assertFalse(result.loc[0, "YoY_Meaningful"])
+
     def test_missing_parent_flags_are_not_evidence(self):
         row = pd.Series({
             "YoY_Meaningful": float("nan"),
@@ -56,6 +65,33 @@ class SignalPrecisionTests(unittest.TestCase):
         self.assertTrue(ce._has_explicit_guidance_or_dividend_cut(
             "The company lowered its full-year earnings guidance."))
 
+    def test_unrelated_8k_items_do_not_fetch_documents(self):
+        subs = {"filings": {"recent": {
+            "form": ["8-K"],
+            "filingDate": ["2026-08-01"],
+            "accessionNumber": ["0000000000-26-000001"],
+            "primaryDocument": ["example.htm"],
+            "items": ["1.01"],
+        }}}
+        with patch.object(ce, "_get_text") as get_text:
+            points, _note = ce._score_csuite_change(subs, "0000000000")
+        self.assertEqual(points, 0)
+        get_text.assert_not_called()
+
+    def test_guidance_scan_caps_prolific_8k_filers(self):
+        count = ce.MAX_8K_DOCUMENTS_PER_SIGNAL + 5
+        subs = {"filings": {"recent": {
+            "form": ["8-K"] * count,
+            "filingDate": ["2026-08-01"] * count,
+            "accessionNumber": [f"0000000000-26-{i:06d}" for i in range(count)],
+            "primaryDocument": [f"example-{i}.htm" for i in range(count)],
+            "items": ["8.01,9.01"] * count,
+        }}}
+        with patch.object(ce, "_get_text", return_value="routine update") as get_text:
+            points, _note = ce._score_guidance_cut(subs, "0000000000")
+        self.assertEqual(points, 0)
+        self.assertEqual(get_text.call_count, ce.MAX_8K_DOCUMENTS_PER_SIGNAL)
+
 
 class CikResolutionTests(unittest.TestCase):
     def test_resolve_cik_uses_installed_rapidfuzz_api(self):
@@ -78,7 +114,36 @@ class CikResolutionTests(unittest.TestCase):
         self.assertEqual(title, "Example Corporation")
 
 
+class IncrementalRefreshTests(unittest.TestCase):
+    def test_one_company_failure_does_not_abort_other_rescans(self):
+        good = pd.DataFrame([{"Company": "Good Co", "Parse_Status": "XBRL"}])
+
+        def fake_rescan(name, _revenue, _index):
+            if name == "Bad Co":
+                raise RuntimeError("bad filing")
+            return good.copy()
+
+        with patch.object(incremental, "_rescan_one", side_effect=fake_rescan):
+            result = incremental.rescan(["Bad Co", "Good Co"], {"Good Co": 100})
+
+        self.assertEqual(result["Company"].tolist(), ["Good Co"])
+
+
 class OutreachSafetyTests(unittest.TestCase):
+    def test_generated_email_has_no_em_dash_or_narrow_sector_claim(self):
+        row = pd.Series({
+            "Company": "Example Co",
+            "primary_name": "Jane Smith",
+            "source": "Fortune 1000",
+            "HFS_Live": True,
+        })
+        body = outreach.build_email(row)
+        self.assertNotIn("\u2014", body)
+        self.assertNotIn("Industrials", body)
+        self.assertNotIn("Manufacturing", body)
+        self.assertNotIn("Business Services", body)
+        self.assertNotIn("\u2014", outreach.SUBJECT)
+
     def test_geographic_reporting_segments_are_not_named(self):
         row = pd.Series({
             "Company": "Example Co",

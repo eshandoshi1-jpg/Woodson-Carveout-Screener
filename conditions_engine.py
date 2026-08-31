@@ -41,6 +41,7 @@ from rapidfuzz import fuzz, process as fuzz_process
 
 HEADERS = {"User-Agent": os.environ.get("SEC_USER_AGENT", "WoodsonEquity research@woodsonequity.com"), "Accept-Encoding": "gzip, deflate"}
 RATE_LIMIT = 0.12   # ~8 req/s, safe under 10/s limit
+MAX_8K_DOCUMENTS_PER_SIGNAL = 8
 BASE_URL = "https://data.sec.gov"
 EDGAR_BASE = "https://www.sec.gov"
 
@@ -140,12 +141,17 @@ def _get_submissions(cik: str) -> Optional[dict]:
 def _recent_filings(subs: dict, form_type: str, months: int = 18) -> list:
     cutoff = datetime.now() - timedelta(days=months * 30)
     recent = subs.get("filings", {}).get("recent", {})
+    forms = recent.get("form", [])
+    items = list(recent.get("items", []))
+    if len(items) < len(forms):
+        items.extend([""] * (len(forms) - len(items)))
     out = []
-    for form, date_str, acc, doc in zip(
-        recent.get("form", []),
+    for form, date_str, acc, doc, filing_items in zip(
+        forms,
         recent.get("filingDate", []),
         recent.get("accessionNumber", []),
         recent.get("primaryDocument", []),
+        items,
     ):
         if not form.startswith(form_type):
             continue
@@ -154,7 +160,8 @@ def _recent_filings(subs: dict, form_type: str, months: int = 18) -> list:
         except ValueError:
             continue
         if form_type == "10-K" or fd >= cutoff:
-            out.append({"form": form, "date": date_str, "acc": acc, "doc": doc})
+            out.append({"form": form, "date": date_str, "acc": acc, "doc": doc,
+                        "items": str(filing_items or "")})
             if form_type == "10-K":
                 break
     return out
@@ -267,13 +274,21 @@ def _score_csuite_change(subs: dict, cik: str) -> Tuple[int, str]:
     ]
 
     eight_ks = _recent_filings(subs, "8-K", months=18)
+    checked = 0
     for filing in eight_ks:
+        filing_items = filing.get("items", "")
+        if filing_items and "5.02" not in filing_items:
+            continue
+        if checked >= MAX_8K_DOCUMENTS_PER_SIGNAL:
+            break
+        checked += 1
         acc = filing["acc"]
         acc_nd = acc.replace("-", "")
-        idx_url = f"{EDGAR_BASE}/Archives/edgar/data/{int(cik)}/{acc_nd}/{acc}-index.htm"
-        idx_html = _get_text(idx_url).lower()
-        if "5.02" not in idx_html:
-            continue
+        if not filing_items:
+            idx_url = f"{EDGAR_BASE}/Archives/edgar/data/{int(cik)}/{acc_nd}/{acc}-index.htm"
+            idx_html = _get_text(idx_url).lower()
+            if "5.02" not in idx_html:
+                continue
 
         # The index page's Item 5.02 TITLE always contains "departure" and
         # "appointment" — useless for discrimination. Fetch the actual 8-K body.
@@ -354,12 +369,22 @@ def _has_explicit_guidance_or_dividend_cut(text: str) -> bool:
 
 def _score_guidance_cut(subs: dict, cik: str) -> Tuple[int, str]:
     eight_ks = _recent_filings(subs, "8-K", months=18)
+    checked = 0
     for filing in eight_ks:
+        filing_items = filing.get("items", "")
+        if filing_items and "8.01" not in filing_items and "2.02" not in filing_items:
+            continue
+        if checked >= MAX_8K_DOCUMENTS_PER_SIGNAL:
+            break
+        checked += 1
         acc = filing["acc"]
         acc_nd = acc.replace("-", "")
-        idx_url = f"{EDGAR_BASE}/Archives/edgar/data/{int(cik)}/{acc_nd}/{acc}-index.htm"
-        html = _get_text(idx_url)
-        if "8.01" in html or ("2.02" in html):
+        relevant = "8.01" in filing_items or "2.02" in filing_items
+        if not filing_items:
+            idx_url = f"{EDGAR_BASE}/Archives/edgar/data/{int(cik)}/{acc_nd}/{acc}-index.htm"
+            html = _get_text(idx_url)
+            relevant = "8.01" in html or "2.02" in html
+        if relevant:
             # Check text for dividend/guidance cut language
             doc_url = _filing_url(cik, acc, filing["doc"])
             text = html_lib.unescape(re.sub(r"<[^>]+>", " ", _get_text(doc_url)))

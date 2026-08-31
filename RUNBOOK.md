@@ -16,8 +16,9 @@ the sidebar. That status currently belongs to the browser that marked it; the fu
 make it shared across users and devices.
 
 ## The URL
-- **App:** _<paste the Vercel URL here once deployed>_
-- Bookmark it. It's always the current data. It's private (password / SSO — see Access below).
+- **App:** https://woodson-carveout-screener.vercel.app/
+- Bookmark this permanent address. Do not bookmark a longer Vercel preview address because previews
+  are fixed to one deployment. The app redirects preview links to this current production version.
 
 ## Reading the freshness chip (top-right)
 - **Green** — "Data as of <date>": the snapshot is current.
@@ -28,7 +29,7 @@ make it shared across users and devices.
 1. Open the GitHub repo → **Actions** tab → **"Refresh snapshot"**.
 2. Click **Run workflow** → **Run workflow**. _(screenshot: TODO — add after first run)_
 3. Wait for the green check. Vercel redeploys automatically; the URL shows the new date within a
-   minute. The same refresh runs automatically twice each weekday.
+   minute. The same refresh runs every morning, plus a second time on weekday afternoons.
 
 ## Who owns what
 - **GitHub repo** and **Vercel project** must live under **firm-owned accounts**, not a personal one.
@@ -43,7 +44,8 @@ The app is firm deal data at a URL. Turn on **Vercel Deployment Protection** (pa
 SSO. The `vercel.json` already sends `noindex`. Don't share the link outside the firm.
 
 ## What's automated vs. manual (current state)
-- **Automated:** twice each weekday, the workflow reads new EDGAR daily indexes, rescans only affected
+- **Automated:** every morning, with a weekday afternoon backup, the workflow reads new EDGAR daily
+  indexes, rescans only affected
   companies, publishes the updated snapshot, and lets Vercel redeploy the same URL. A failed refresh
   is retried twice before the workflow is marked red.
 - **Manual fallback:** use **Run workflow** to start the same incremental refresh immediately. The full

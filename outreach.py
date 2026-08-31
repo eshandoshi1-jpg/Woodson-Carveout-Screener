@@ -83,7 +83,7 @@ def _list_phrase(source: str) -> str:
 
 
 def personalization(r) -> str:
-    """The variable second sentence of paragraph 2, tiered by real evidence."""
+    """The evidence-specific second paragraph, tiered by what filings support."""
     company = r["Company"]
     div = _clean_div(r.get("FP_Candidate_Segment"))
     share = pd.to_numeric(pd.Series([r.get("FP_Candidate_Share_pct")]), errors="coerce").iloc[0]
@@ -95,41 +95,43 @@ def personalization(r) -> str:
     exploring = timing == "EXPLORATORY"          # real language only; FETCH_FAIL/PENDING excluded
     pruner = str(r.get("FP_Archetype")) == "strategic_pruner"
 
-    tail = "an operationally focused partner that can move expeditiously"
+    discussion = ("we'd love to learn more and see if it would be a good fit to discuss since we are "
+                  "an operationally focused firm with carveout experience")
+    division = div if div.lower().endswith("division") else f"{div} division"
 
     if hfs:
-        return (f"In reviewing your recent filings, we noted a business classified as held-for-sale, "
-                f"exactly the kind of situation where {tail} can add value.")
+        return (f"I recently reviewed your latest filings, and we saw that a business was classified "
+                f"as held for sale, and {discussion}.")
     if exploring and nameable:
-        return (f"In reviewing your recent filings, we saw a review of strategic alternatives underway, "
-                f"and {div} looks like a natural carveout candidate for {tail}.")
+        return (f"I recently reviewed your latest filings, and we saw that the {division} had a review "
+                f"of strategic alternatives underway, and {discussion}.")
     if delever and nameable:
-        return (f"In reviewing your recent filings, we noted a focus on reducing leverage, and {div} "
-                f"stood out as a business that may be non-core to that path, and a candidate for a "
-                f"carveout to {tail}.")
+        return (f"I recently reviewed your latest filings, and we saw a focus on reducing leverage. "
+                f"The {division} may be non-core to that path, and {discussion}.")
     if delever:
-        return (f"In reviewing your recent filings, we noted a focus on reducing leverage, and wanted to "
-                f"ask whether there are non-core units you'd consider divesting to {tail}.")
+        return (f"I recently reviewed your latest filings, and we saw a focus on reducing leverage. "
+                f"We'd love to learn whether there are any non-core units that would be a good fit to "
+                f"discuss since we are an operationally focused firm with carveout experience.")
     if nameable and pruner:
-        return (f"In reviewing your segment financials, {div} stood out as potentially non-core relative "
-                f"to the rest of the portfolio. It is the kind of unit that benefits from {tail}.")
-    # generic (boss's original line) — safe default
-    return (f"I'm reaching out to see if {company} has any non-core or underperforming business units "
-            f"in need of {tail}.")
+        return (f"I recently reviewed your latest filings, and the {division} stood out as potentially "
+                f"non-core relative to the rest of the portfolio. {discussion.capitalize()}.")
+    # Generic, evidence-safe version of the same streamlined paragraph.
+    return (f"I recently reviewed your latest filings, and we'd love to learn whether {company} has any "
+            f"non-core or underperforming business units that would be a good fit to discuss since we are "
+            f"an operationally focused firm with carveout experience.")
 
 
 def build_email(r) -> str:
     first = _first_name(r.get("primary_name"))
-    company = r["Company"]
-    lst = _list_phrase(r.get("source"))
     body = (
         f"Hi {first},\n\n"
-        f"My name is {SENDER} from {FROM_FIRM}. We are a private equity firm based in Washington, D.C., "
-        f"with an extensive and successful track record of working with corporate sellers on carveouts "
-        f"and divestitures.\n\n"
-        f"I found {company} when searching through {lst}. {personalization(r)}\n\n"
+        f"My name is {SENDER} from {FROM_FIRM}. We are a private equity firm that specializes in corporate "
+        f"carveouts and divestitures based in Washington, D.C. Our team has completed over 20 corporate "
+        f"carveouts and we have the playbook on how to execute expeditiously with minimal lift to the "
+        f"parent company.\n\n"
+        f"{personalization(r)}\n\n"
         f"One example: last year we executed a complex corporate carveout from a public company and "
-        f"closed the deal in 35 days, and within the first 100 days we were off of the TSA. We have a "
+        f"closed the deal in 35 days, and came off of the TSA within the first 100 days. We have the "
         f"playbook to expeditiously execute corporate carveouts and divestitures while minimizing the "
         f"lift on your end.\n\n"
         f"Please advise on who from your team I should speak with regarding the above.\n\n"

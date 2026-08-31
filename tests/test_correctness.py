@@ -145,6 +145,10 @@ class OutreachSafetyTests(unittest.TestCase):
             "HFS_Live": True,
         })
         body = outreach.build_email(row)
+        self.assertIn("specializes in corporate carveouts and divestitures", body)
+        self.assertIn("completed over 20 corporate carveouts", body)
+        self.assertIn("came off of the TSA within the first 100 days", body)
+        self.assertNotIn("I found Example Co when searching", body)
         self.assertNotIn("\u2014", body)
         self.assertNotIn("Industrials", body)
         self.assertNotIn("Manufacturing", body)

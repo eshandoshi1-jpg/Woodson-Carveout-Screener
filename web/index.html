@@ -823,7 +823,7 @@ function profileHtml(c,inline){
       </div></div></div>`;
 }
 function dealCloudCompanyHtml(c){
-  const dc=c.dealCloud||{name:c.company,website:null,description:`${c.company} is being tracked by Woodson for a potential corporate carveout or divestiture.`};
+  const dc=c.dealCloud||{name:c.company,website:null,description:"A diversified operating company."};
   return `<div class="panel section-gap"><div class="panel-h"><h2>Company details for DealCloud</h2><span class="sub">Copy these fields into the company record</span></div>
     <div class="dealcloud-grid">
       <div class="dealcloud-field"><div class="k">Name</div><div class="dealcloud-value"><span class="text">${esc(dc.name)}</span><button class="iconbtn" id="copy-dc-name" type="button" title="Copy company name">${I.copy}</button></div></div>
@@ -833,7 +833,7 @@ function dealCloudCompanyHtml(c){
 }
 function renderCompany(v,id){const c=BY_ID[id];
   if(!c){v.innerHTML=`<div class="empty"><div class="big">Company not found.</div><a href="#/pipeline">Back to pipeline</a></div>`;return;}
-  const dc=c.dealCloud||{name:c.company,website:null,description:`${c.company} is being tracked by Woodson for a potential corporate carveout or divestiture.`};
+  const dc=c.dealCloud||{name:c.company,website:null,description:"A diversified operating company."};
   v.innerHTML=`<div class="crumb"><a href="#/pipeline">Pipeline</a> / ${esc(c.company)}</div><div class="panel section-gap">${profileHtml(c,false)}</div>${dealCloudCompanyHtml(c)}`;
   $("#copy-dc-name").onclick=e=>copyText(dc.name,e.currentTarget,"Copy name");
   const website=$("#copy-dc-website");if(website)website.onclick=e=>copyText(dc.website,e.currentTarget,"Copy website");

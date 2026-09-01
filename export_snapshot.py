@@ -27,6 +27,7 @@ import outreach as O
 ENRICHED = "data/woodson_enriched.xlsx"
 OUT = "data/snapshot.json"
 BANKER_CRM = "data/banker_crm.json"
+UNIVERSE = "data/universe.csv"
 UNIVERSE_SCANNED = 1107          # total companies the full run scanned (incl. unresolved)
 
 # signal type -> (hard?, Factor_Links_JSON key or None)
@@ -116,46 +117,126 @@ def company_website(email):
     return f"https://{domain}"
 
 
-def _dealcloud_revenue(value):
-    if not value:
-        return None
-    if value >= 1_000_000_000:
-        return f"${value / 1_000_000_000:.1f} billion"
-    return f"${value / 1_000_000:,.0f} million"
+INDUSTRY_DESCRIPTIONS = {
+    "advertising, marketing": "A provider of advertising and marketing services.",
+    "aerospace & defense": "A manufacturer and provider of aerospace and defense products.",
+    "airlines": "An airline operator.",
+    "apparel": "A manufacturer and marketer of apparel.",
+    "automotive retailing, services": "A provider of automotive retail and related services.",
+    "banking": "A banking and financial services company.",
+    "commercial banks": "A commercial banking and financial services company.",
+    "beverages": "A producer and distributor of beverages.",
+    "building materials, glass": "A manufacturer of building materials and glass products.",
+    "business services & supplies": "A provider of business services and supplies.",
+    "capital goods": "A manufacturer of capital goods.",
+    "chemicals": "A manufacturer of chemical products.",
+    "computer software": "A developer of computer software.",
+    "computers, office equipment": "A manufacturer of computers and office equipment.",
+    "construction": "A provider of construction services.",
+    "construction and farm machinery": "A manufacturer of construction and farm machinery.",
+    "consumer durables": "A manufacturer of consumer durable products.",
+    "diversified financials": "A diversified financial services company.",
+    "diversified outsourcing services": "A provider of diversified outsourcing services.",
+    "drugs & biotechnology": "A developer and manufacturer of pharmaceuticals and biotechnology products.",
+    "education": "A provider of education services.",
+    "electronics, electrical equip.": "A manufacturer of electronic and electrical equipment.",
+    "energy": "An energy company.",
+    "energy + digital": "An energy and digital infrastructure company.",
+    "engineering & construction": "A provider of engineering and construction services.",
+    "entertainment": "An entertainment company.",
+    "equipment leasing": "A provider of equipment leasing services.",
+    "financial data services": "A provider of financial data and information services.",
+    "food and drug stores": "A retailer of food, pharmacy, and consumer products.",
+    "food consumer products": "A producer of packaged food and consumer products.",
+    "food markets": "A food retail company.",
+    "food production": "A producer of food products.",
+    "food services": "A provider of food services.",
+    "food, drink & tobacco": "A producer of food, beverage, and tobacco products.",
+    "forest and paper products": "A manufacturer of forest and paper products.",
+    "general merchandisers": "A general merchandise retailer.",
+    "global products (oils & fluids)": "A manufacturer and distributor of specialty oils and fluids.",
+    "health care equipment & services": "A provider of health care equipment and services.",
+    "health care: insurance and managed care": "A health insurance and managed care company.",
+    "health care: medical facilities": "An operator of health care facilities.",
+    "health care: pharmacy and other services": "A provider of pharmacy and health care services.",
+    "healthcare": "A health care products and services company.",
+    "home equipment, furnishings": "A manufacturer and marketer of home equipment and furnishings.",
+    "homebuilders": "A residential homebuilder.",
+    "hotels, casinos, resorts": "An operator of hotels, casinos, and resorts.",
+    "hotels, restaurants & leisure": "An operator of hospitality, restaurant, and leisure businesses.",
+    "household & personal products": "A manufacturer of household and personal care products.",
+    "household and personal products": "A manufacturer of household and personal care products.",
+    "industrial machinery": "A manufacturer of industrial machinery.",
+    "information technology services": "A provider of information technology services.",
+    "insurance": "An insurance provider.",
+    "insurance: life, health (mutual)": "A mutual life and health insurance provider.",
+    "insurance: life, health (stock)": "A life and health insurance provider.",
+    "insurance: property and casualty (mutual)": "A mutual property and casualty insurance provider.",
+    "insurance: property and casualty (stock)": "A property and casualty insurance provider.",
+    "internet services and retailing": "An internet services and online retail company.",
+    "it software & services": "A provider of software and information technology services.",
+    "mail, package, and freight delivery": "A provider of mail, package, and freight delivery services.",
+    "materials": "A producer of industrial materials.",
+    "media": "A media company.",
+    "medical products and equipment": "A manufacturer of medical products and equipment.",
+    "metals": "A producer and manufacturer of metal products.",
+    "mining, crude-oil production": "A mining and crude oil production company.",
+    "miscellaneous": "A diversified operating company.",
+    "motor vehicles & parts": "A manufacturer of motor vehicles and automotive parts.",
+    "network and other communications equipment": "A manufacturer of networking and communications equipment.",
+    "oil & gas operations": "An oil and gas exploration and production company.",
+    "oil and gas equipment, services": "A provider of oil and gas equipment and services.",
+    "packaging, containers": "A manufacturer of packaging and container products.",
+    "petroleum refining": "A petroleum refining and marketing company.",
+    "pharmaceuticals": "A developer and manufacturer of pharmaceutical products.",
+    "pipelines": "An operator of energy pipelines and related infrastructure.",
+    "publishing, printing": "A publishing and printing company.",
+    "railroads": "A railroad operator.",
+    "real estate": "A real estate company.",
+    "retailing": "A retail company.",
+    "scientific, photographic, and control equipment": "A manufacturer of scientific, photographic, and control equipment.",
+    "securities": "A securities and financial services company.",
+    "semiconductors": "A manufacturer of semiconductors.",
+    "semiconductors and other electronic components": "A manufacturer of semiconductors and electronic components.",
+    "shipping": "A provider of shipping and logistics services.",
+    "specialty retailers: apparel": "A specialty apparel retailer.",
+    "specialty retailers: other": "A specialty retail company.",
+    "technology hardware & equipment": "A manufacturer of technology hardware and equipment.",
+    "telecommunications": "A provider of telecommunications services.",
+    "telecommunications services": "A provider of telecommunications services.",
+    "tobacco": "A manufacturer of tobacco products.",
+    "toys, sporting goods": "A manufacturer and marketer of toys and sporting goods.",
+    "trading companies": "A diversified trading company.",
+    "transportation": "A provider of transportation services.",
+    "transportation and logistics": "A provider of transportation and logistics services.",
+    "transportation equipment": "A manufacturer of transportation equipment.",
+    "trucking, truck leasing": "A provider of trucking and truck leasing services.",
+    "utilities": "A utility company.",
+    "utilities: gas and electric": "A gas and electric utility.",
+    "waste management": "A provider of waste management services.",
+    "wholesalers: diversified": "A diversified wholesale distributor.",
+    "wholesalers: diversified - industrial equipment supplier": "A distributor of industrial equipment.",
+    "wholesalers: electronics and office equipment": "A distributor of electronics and office equipment.",
+    "wholesalers: food and grocery": "A distributor of food and grocery products.",
+    "wholesalers: health care": "A distributor of health care products.",
+}
 
 
-def dealcloud_description(company, ticker, cik, division, signals):
-    """Concise, source-bounded parent-company description for manual DealCloud entry."""
-    identity = company
-    identifiers = [value for value in (f"ticker {ticker}" if ticker else None,
-                                        f"CIK {cik}" if cik else None) if value]
-    if identifiers:
-        identity += f" ({'; '.join(identifiers)})"
-    parts = [f"{identity} is a U.S. public company Woodson is tracking for a potential corporate carveout or divestiture."]
-    if division and division.get("outreachNameAllowed"):
-        detail = f"The current screen identifies {division['name']} as the candidate business"
-        revenue = _dealcloud_revenue(division.get("revenueUsd"))
-        share = division.get("pctOfParentRevenue")
-        facts = []
-        if revenue:
-            facts.append(f"approximately {revenue} of revenue")
-        if share is not None:
-            facts.append(f"approximately {round(share)}% of parent revenue")
-        parts.append(detail + (f", with {' and '.join(facts)}." if facts else "."))
-    elif division:
-        parts.append("The current screen is being handled as a general portfolio review because the reported candidate is geographic rather than a standalone operating business.")
-    else:
-        parts.append("No specific operating division is named in the current screen, so the opportunity is being handled as a general portfolio review.")
-    labels = {
-        "held_for_sale": "held-for-sale disclosure", "exploring_alternatives": "strategic alternatives review",
-        "activist_13d": "activist 13D", "deleveraging_intent": "deleveraging intent",
-        "exec_departure": "executive departure", "guidance_dividend_cut": "guidance or dividend cut",
-        "serial_divester": "recent divestiture activity",
+def clean_industry(value):
+    industry = re.sub(r"\s*\(DI\)\s*$", "", _s(value) or "").strip()
+    fixes = {
+        "Scietific, Photographic and Control Equipment": "Scientific, Photographic, and Control Equipment",
+        "Scientific,Photographic and  Control Equipment": "Scientific, Photographic, and Control Equipment",
     }
-    active = [labels[s["type"]] for s in signals if s.get("type") in labels][:3]
-    if active:
-        parts.append(f"Current timing indicators include {', '.join(active)}.")
-    return " ".join(parts)
+    return fixes.get(industry, industry) or None
+
+
+def dealcloud_description(industry):
+    """One plain business sentence for DealCloud's company-description field."""
+    industry = clean_industry(industry)
+    if not industry:
+        return "A diversified operating company."
+    return INDUSTRY_DESCRIPTIONS.get(industry.lower(), f"A company operating in the {industry.lower()} sector.")
 
 
 def _links(row):
@@ -303,6 +384,9 @@ SRC = {"Fortune 1000": "fortune1000", "Fortune LY": "fortune1000", "Forbes US HQ
 
 def main():
     df = pd.read_excel(ENRICHED, engine="openpyxl")
+    universe = pd.read_csv(UNIVERSE, dtype={"CIK": str})
+    industry_by_company = (dict(zip(universe["Company"], universe["Industry"]))
+                           if "Industry" in universe.columns else {})
     co = df.drop_duplicates("Company").copy()
     V = co["Match_Quality"].isin(["VERIFIED", "REVIEW"]) & (co["Region"] == "US")
     co = co[V].copy()
@@ -339,11 +423,11 @@ def main():
                        "function": "corp_dev" if "Development" in role else "cfo",
                        "email": _s(r.get("primary_email"))}
         website = company_website(contact["email"] if contact else None)
+        industry = clean_industry(industry_by_company.get(r["Company"]))
         dealcloud = {
             "name": r["Company"],
             "website": website,
-            "description": dealcloud_description(r["Company"], _s(r.get("Ticker")), _s(r.get("CIK")),
-                                                  division, signals),
+            "description": dealcloud_description(industry),
         }
         # outreach body with a {{SENDER}} token the UI fills
         body = O.build_email(r).replace(O.SENDER, "{{SENDER}}")
@@ -351,7 +435,7 @@ def main():
             "company": r["Company"], "ticker": _s(r.get("Ticker")), "cik": _s(r.get("CIK")),
             "score": int(_num(r.get("Propensity_Score")) or 0), "tier": tier_val(r.get("Tier")),
             "mandateFit": bool(division and division["mandate"]["fit"] == "fit"),
-            "sector": None,
+            "sector": industry,
             "sources": [SRC.get(str(r.get("source")), "fortune1000")],
             "archetype": {"strategic_pruner": "pruner", "forced_seller": "forced_seller"}.get(str(r.get("FP_Archetype"))),
             "candidateDivision": division,

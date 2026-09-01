@@ -96,6 +96,22 @@ class RefreshControlTests(unittest.TestCase):
         self.assertIn('"dataAsOf": data_mtime.strftime', source)
 
 
+class DealCloudDescriptionTests(unittest.TestCase):
+    def test_description_is_one_plain_business_sentence(self):
+        self.assertEqual(
+            snapshot.dealcloud_description("Building Materials, Glass"),
+            "A manufacturer of building materials and glass products.",
+        )
+
+    def test_all_source_industries_have_short_non_transactional_descriptions(self):
+        universe = pd.read_csv("data/universe.csv")
+        descriptions = [snapshot.dealcloud_description(value) for value in universe["Industry"]]
+        self.assertTrue(all(text.endswith(".") and text.count(".") == 1 for text in descriptions))
+        self.assertTrue(all(len(text) <= 100 for text in descriptions))
+        forbidden = ("woodson", "ticker", "cik", "carveout", "divestiture", "revenue", "timing indicator")
+        self.assertTrue(all(not any(word in text.lower() for word in forbidden) for text in descriptions))
+
+
 class SignalPrecisionTests(unittest.TestCase):
     def test_generic_earnings_decline_is_not_guidance_cut(self):
         self.assertFalse(ce._has_explicit_guidance_or_dividend_cut(

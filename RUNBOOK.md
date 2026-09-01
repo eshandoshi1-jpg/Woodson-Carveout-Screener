@@ -16,6 +16,8 @@ available for general portfolio-review outreach, but the region itself is not de
 Each corporate target page has **Company details for DealCloud** with a copyable Name, Website, and
 Description. The Outreach draft page links directly to those fields. A website is shown only when it
 can be derived from the verified corporate contact's email domain; the tracker does not guess missing URLs.
+Descriptions are intentionally limited to one plain business sentence using the original corporate-list
+industry, with no ticker, CIK, transaction thesis, signals, or financial detail.
 
 When a draft is marked contacted, the company appears under **Saved Views → Contacted companies** in
 the sidebar. That status currently belongs to the browser that marked it; the future HubSpot sync will

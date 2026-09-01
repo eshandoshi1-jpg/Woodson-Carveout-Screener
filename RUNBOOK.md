@@ -13,6 +13,10 @@ are available in the Relationships section and bankers inherit their firm's tier
 Geographic reporting segments are intentionally withheld from outreach language. Those firms remain
 available for general portfolio-review outreach, but the region itself is not described as non-core.
 
+Each corporate target page has **Company details for DealCloud** with a copyable Name, Website, and
+Description. The Outreach draft page links directly to those fields. A website is shown only when it
+can be derived from the verified corporate contact's email domain; the tracker does not guess missing URLs.
+
 When a draft is marked contacted, the company appears under **Saved Views → Contacted companies** in
 the sidebar. That status currently belongs to the browser that marked it; the future HubSpot sync will
 make it shared across users and devices.

@@ -105,6 +105,59 @@ def _clean_div(s):
     return None if (not s or s.lower() in ("nan", "none")) else re.sub(r"(\s*(Segment|Member))+\s*$", "", s).strip()
 
 
+def company_website(email):
+    """Use the verified corporate-contact domain; do not invent a website without one."""
+    email = (_s(email) or "").lower()
+    if "@" not in email:
+        return None
+    domain = email.rsplit("@", 1)[-1].strip().strip(".")
+    if "." not in domain or not re.fullmatch(r"[a-z0-9.-]+", domain):
+        return None
+    return f"https://{domain}"
+
+
+def _dealcloud_revenue(value):
+    if not value:
+        return None
+    if value >= 1_000_000_000:
+        return f"${value / 1_000_000_000:.1f} billion"
+    return f"${value / 1_000_000:,.0f} million"
+
+
+def dealcloud_description(company, ticker, cik, division, signals):
+    """Concise, source-bounded parent-company description for manual DealCloud entry."""
+    identity = company
+    identifiers = [value for value in (f"ticker {ticker}" if ticker else None,
+                                        f"CIK {cik}" if cik else None) if value]
+    if identifiers:
+        identity += f" ({'; '.join(identifiers)})"
+    parts = [f"{identity} is a U.S. public company Woodson is tracking for a potential corporate carveout or divestiture."]
+    if division and division.get("outreachNameAllowed"):
+        detail = f"The current screen identifies {division['name']} as the candidate business"
+        revenue = _dealcloud_revenue(division.get("revenueUsd"))
+        share = division.get("pctOfParentRevenue")
+        facts = []
+        if revenue:
+            facts.append(f"approximately {revenue} of revenue")
+        if share is not None:
+            facts.append(f"approximately {round(share)}% of parent revenue")
+        parts.append(detail + (f", with {' and '.join(facts)}." if facts else "."))
+    elif division:
+        parts.append("The current screen is being handled as a general portfolio review because the reported candidate is geographic rather than a standalone operating business.")
+    else:
+        parts.append("No specific operating division is named in the current screen, so the opportunity is being handled as a general portfolio review.")
+    labels = {
+        "held_for_sale": "held-for-sale disclosure", "exploring_alternatives": "strategic alternatives review",
+        "activist_13d": "activist 13D", "deleveraging_intent": "deleveraging intent",
+        "exec_departure": "executive departure", "guidance_dividend_cut": "guidance or dividend cut",
+        "serial_divester": "recent divestiture activity",
+    }
+    active = [labels[s["type"]] for s in signals if s.get("type") in labels][:3]
+    if active:
+        parts.append(f"Current timing indicators include {', '.join(active)}.")
+    return " ".join(parts)
+
+
 def _links(row):
     try:
         return json.loads(row.get("Factor_Links_JSON") or "{}")
@@ -285,6 +338,13 @@ def main():
             contact = {"name": _s(r.get("primary_name")), "title": _s(r.get("primary_title")),
                        "function": "corp_dev" if "Development" in role else "cfo",
                        "email": _s(r.get("primary_email"))}
+        website = company_website(contact["email"] if contact else None)
+        dealcloud = {
+            "name": r["Company"],
+            "website": website,
+            "description": dealcloud_description(r["Company"], _s(r.get("Ticker")), _s(r.get("CIK")),
+                                                  division, signals),
+        }
         # outreach body with a {{SENDER}} token the UI fills
         body = O.build_email(r).replace(O.SENDER, "{{SENDER}}")
         companies.append({
@@ -302,6 +362,7 @@ def main():
             "why": why_text(r),
             "signals": signals,
             "contact": contact,
+            "dealCloud": dealcloud,
             "outreach": {"evidenceTier": evidence_tier(signals, bool(div_name) and not geographic_candidate),
                          "subject": O.SUBJECT,
                          "body": body,

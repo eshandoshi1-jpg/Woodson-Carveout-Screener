@@ -18,6 +18,8 @@ outreach contact. The front end is a single self-contained web app.
 - `build_web.py` → rebuilds `web/index.html` + `web/snapshot.json` from `data/woodson_app.template.html`.
 - The Outreach Queue supports safe multi-select, batch review, CSV draft export, and a sidebar
   view of companies marked contacted. It never sends email.
+- Each corporate target page includes DealCloud-ready Name, Website, and Description fields with
+  one-click copying. Websites come from verified corporate-contact domains rather than guessed URLs.
 - Banker Relationships contains 518 investment banks and 1,914 banker contacts, with firm and person
   pages for priority, owner, coverage, status, last touch, next follow-up, notes, outreach drafts, and
   activity export. The supplied firm list is classified as 391 Tier 4 banks; all other firms are the

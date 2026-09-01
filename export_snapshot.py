@@ -330,7 +330,8 @@ def main():
         except Exception:
             pass
 
-    mtime = datetime.fromtimestamp(Path(ENRICHED).stat().st_mtime, tz=timezone.utc)
+    exported_at = datetime.now(timezone.utc)
+    data_mtime = datetime.fromtimestamp(Path(ENRICHED).stat().st_mtime, tz=timezone.utc)
     coverage = {"runMode": "full", "sources": "10-K / 10-Q / 8-K / SC 13D/G"}
     sp = Path("data/state.json")
     if sp.exists():
@@ -344,7 +345,10 @@ def main():
     banker_crm = load_banker_crm()
     snap = {
         "meta": {
-            "generatedAt": mtime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            # This is the completed snapshot/export time, even when the SEC check found no changed rows.
+            # The former workbook-mtime value made successful no-change refreshes look stale in the UI.
+            "generatedAt": exported_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "dataAsOf": data_mtime.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "universeScanned": UNIVERSE_SCANNED,
             "secVerified": len(companies),
             "engineVersion": "woodson-2026.08",

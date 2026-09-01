@@ -27,10 +27,13 @@ outreach contact. The front end is a single self-contained web app.
   inputs), `data/contacts.csv` (the corporate rolodex), and `data/banker_crm.json` (the banker directory).
 
 ## Refresh
-- **Automatic:** `.github/workflows/refresh.yml` runs `refresh.py` every morning at 06:17 ET, plus a
-  13:17 ET weekday backup, and commits the new snapshot; Vercel auto-deploys. Saturday morning catches
+- **Automatic:** `.github/workflows/refresh.yml` runs `refresh.py` at 06:17 ET, with weekday fallbacks
+  at 08:47 ET and 13:17 ET, and commits the new snapshot; Vercel auto-deploys. Saturday morning catches
   the finalized Friday SEC index. Enable Actions on the repo for this to run.
-- **Manual:** GitHub → Actions → "Refresh snapshot" → Run workflow. Or locally: `python3 refresh.py`.
+- **Manual:** use **Refresh data** in the app header. It opens the protected GitHub trigger and then
+  watches for the newly deployed snapshot. Or locally: `python3 refresh.py`.
+- `meta.generatedAt` records each completed export even when no company rows changed, while
+  `meta.dataAsOf` preserves the underlying enriched-workbook timestamp.
 
 ## Requirements
 Python 3.11+, `pip install -r requirements.txt`. SEC access needs no key — only a declared User-Agent,

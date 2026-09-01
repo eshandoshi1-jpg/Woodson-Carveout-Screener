@@ -34,10 +34,13 @@ in the tracker; attach an updated overview before using the banker draft's attac
   (below). If that fails, check https://www.sec.gov is up, then re-run once more.
 
 ## Refreshing the data (manual — takes a few minutes)
-1. Open the GitHub repo → **Actions** tab → **"Refresh snapshot"**.
-2. Click **Run workflow** → **Run workflow**. _(screenshot: TODO — add after first run)_
-3. Wait for the green check. Vercel redeploys automatically; the URL shows the new date within a
-   minute. The same refresh runs every morning, plus a second time on weekday afternoons.
+1. Click **Refresh data** in the app header.
+2. Click **Start secure refresh**. On the protected GitHub page, choose **Run workflow**.
+3. Return to the tracker and leave the refresh panel open. It checks for the newly published snapshot
+   and reloads automatically. **Check for update** is also available if you want to check immediately.
+
+The same refresh runs every morning, with a second morning attempt and a weekday afternoon fallback.
+No GitHub credential is stored in the browser.
 
 ## Who owns what
 - **GitHub repo** and **Vercel project** must live under **firm-owned accounts**, not a personal one.
@@ -52,7 +55,7 @@ The app is firm deal data at a URL. Turn on **Vercel Deployment Protection** (pa
 SSO. The `vercel.json` already sends `noindex`. Don't share the link outside the firm.
 
 ## What's automated vs. manual (current state)
-- **Automated:** every morning, with a weekday afternoon backup, the workflow reads new EDGAR daily
+- **Automated:** every morning, with morning and weekday-afternoon fallbacks, the workflow reads new EDGAR daily
   indexes, rescans only affected
   companies, publishes the updated snapshot, and lets Vercel redeploy the same URL. A failed refresh
   is retried twice before the workflow is marked red.

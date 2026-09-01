@@ -81,6 +81,21 @@ class BankerCRMTests(unittest.TestCase):
         self.assertNotIn("Joel Matthew", template.replace("Joel\\s+Matthew", ""))
 
 
+class RefreshControlTests(unittest.TestCase):
+    def test_manual_refresh_control_uses_protected_workflow(self):
+        template = Path("data/woodson_app.template.html").read_text()
+        self.assertIn(">Refresh data</button>", template)
+        self.assertIn("actions/workflows/refresh.yml", template)
+        self.assertIn("checkPublishedRefresh", template)
+        self.assertNotIn("GITHUB_TOKEN", template)
+
+    def test_snapshot_freshness_uses_export_time(self):
+        source = Path("export_snapshot.py").read_text()
+        self.assertIn("exported_at = datetime.now(timezone.utc)", source)
+        self.assertIn('"generatedAt": exported_at.strftime', source)
+        self.assertIn('"dataAsOf": data_mtime.strftime', source)
+
+
 class SignalPrecisionTests(unittest.TestCase):
     def test_generic_earnings_decline_is_not_guidance_cut(self):
         self.assertFalse(ce._has_explicit_guidance_or_dividend_cut(

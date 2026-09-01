@@ -65,7 +65,24 @@ svg{display:block}
 .fresh.stale{color:var(--warn)} .fresh.stale .dot{background:var(--warn)}
 .navbtn{width:30px;height:30px;display:grid;place-items:center;border-radius:6px;background:transparent;border:1px solid var(--nav-field-bd);color:var(--nav-muted)}
 .navbtn:hover{color:var(--nav-text);border-color:var(--accent)}
+.refreshnav{height:30px;padding:0 10px;border-radius:6px;background:transparent;border:1px solid var(--nav-field-bd);color:var(--nav-text);font-size:12px;font-weight:600;white-space:nowrap}
+.refreshnav:hover{border-color:var(--accent);background:var(--nav-field)}
 .firm{width:30px;height:30px;border-radius:6px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+
+/* ── manual refresh panel ────────────────────────────── */
+.modalback{position:fixed;inset:0;z-index:100;background:rgba(8,24,43,.52);display:grid;place-items:center;padding:20px}
+.modalback[hidden]{display:none}
+.refreshcard{width:min(560px,100%);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--pop);padding:22px}
+.refreshhead{display:flex;align-items:flex-start;gap:16px;margin-bottom:16px}
+.refreshhead h2{font-size:21px;margin-bottom:4px}.refreshhead p{font-size:13px;color:var(--text-secondary);line-height:1.5;margin:0}
+.refreshhead .iconbtn{margin-left:auto;flex:none}
+.refreshfacts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.refreshfact{background:var(--group);border-radius:8px;padding:11px 12px}.refreshfact .k{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px}.refreshfact .v{font-size:13px;font-weight:600}
+.refreshstatus{border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-size:13px;line-height:1.5;color:var(--text-secondary);margin-bottom:14px}
+.refreshstatus.good{background:rgba(30,122,70,.10);color:var(--positive)}.refreshstatus.warn{background:var(--warn-soft);color:var(--warn)}
+.refreshsteps{margin:0 0 16px;padding-left:20px;color:var(--text-secondary);font-size:13px;line-height:1.55}.refreshsteps li+li{margin-top:4px}
+.refreshactions{display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+@media(max-width:700px){.fresh{display:none}.refreshnav{padding:0 8px}.refreshfacts{grid-template-columns:1fr}}
 
 .body{flex:1;display:flex;min-height:0}
 .side{width:236px;flex:none;background:var(--sidebar);border-right:1px solid var(--border);overflow-y:auto;padding:10px 0}
@@ -318,7 +335,10 @@ if(location.hostname.endsWith(".vercel.app")&&location.hostname!==PRODUCTION_HOS
   location.replace(`https://${PRODUCTION_HOST}${location.pathname}${location.search}${location.hash}`);
 }
 const SNAP_SRC = "fetch";
+const REFRESH_WORKFLOW_URL="https://github.com/eshandoshi1-jpg/Woodson-Carveout-Screener/actions/workflows/refresh.yml";
+const REFRESH_RUNS_API="https://api.github.com/repos/eshandoshi1-jpg/Woodson-Carveout-Screener/actions/workflows/refresh.yml/runs?per_page=1";
 let META, COMPANIES, CHANGES=[], BANK_META={}, BANKS=[], BANKERS=[];
+let REFRESH_POLL=null,REFRESH_RUN_STATE=null;
 
 const SIG={
   held_for_sale:{label:"Held for sale",hard:true,
@@ -437,6 +457,46 @@ function parseHash(){const h=location.hash.replace(/^#\/?/,"");const [p,qs]=h.sp
 const go=h=>location.hash=h;
 window.addEventListener("hashchange",render);
 
+/* ── refresh control ───────────────────────────────── */
+const refreshTime=iso=>{if(!iso)return "Unavailable";const d=new Date(iso);return d.toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});};
+function setRefreshStatus(message,tone=""){
+  const el=$("#refresh-status");if(!el)return;el.textContent=message;el.className="refreshstatus"+(tone?" "+tone:"");
+}
+async function loadRefreshRunStatus(){
+  const el=$("#refresh-run");if(!el)return;
+  try{
+    const response=await fetch(REFRESH_RUNS_API,{cache:"no-store",headers:{Accept:"application/vnd.github+json"}});if(!response.ok)throw new Error("HTTP "+response.status);
+    const run=(await response.json()).workflow_runs?.[0];REFRESH_RUN_STATE=run||null;
+    if(!run){el.textContent="No run found";return;}
+    const state=run.status==="completed"?(run.conclusion==="success"?"Completed":"Failed"):run.status==="in_progress"?"Running":"Queued";
+    el.textContent=`${state} \u00b7 ${refreshTime(run.created_at)}`;
+  }catch(e){REFRESH_RUN_STATE=null;el.textContent="Status unavailable";}
+}
+async function checkPublishedRefresh(manual=false){
+  const btn=$("#check-refresh");if(manual&&btn){btn.disabled=true;btn.textContent="Checking\u2026";}
+  try{
+    const response=await fetch(`snapshot.json?refresh=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("HTTP "+response.status);
+    const next=await response.json(),currentAt=new Date(META.generatedAt||0).getTime(),nextAt=new Date(next.meta?.generatedAt||0).getTime();
+    if(nextAt>currentAt){
+      setRefreshStatus("A newer snapshot is live. Reloading the tracker now.","good");
+      setTimeout(()=>location.reload(),700);return;
+    }
+    if(REFRESH_RUN_STATE&&["queued","in_progress"].includes(REFRESH_RUN_STATE.status))setRefreshStatus("The refresh is running. This panel will reload the tracker when publishing finishes.","warn");
+    else if(manual)setRefreshStatus("No newer snapshot is published yet. If you just started a refresh, leave this panel open.");
+    else setRefreshStatus("The tracker is showing the latest published snapshot.","good");
+  }catch(e){setRefreshStatus("The update check could not connect. Try again in a moment.","warn");}
+  finally{if(manual&&btn){btn.disabled=false;btn.textContent="Check for update";}}
+}
+function startRefreshPolling(){
+  if(REFRESH_POLL)clearInterval(REFRESH_POLL);
+  REFRESH_POLL=setInterval(async()=>{if(!$("#refreshmodal")?.hidden){await loadRefreshRunStatus();await checkPublishedRefresh(false);}},30000);
+}
+async function openRefreshPanel(){
+  const modal=$("#refreshmodal");if(!modal)return;modal.hidden=false;setRefreshStatus("Checking the refresh service\u2026");await loadRefreshRunStatus();await checkPublishedRefresh(false);startRefreshPolling();
+}
+function closeRefreshPanel(){const modal=$("#refreshmodal");if(modal)modal.hidden=true;if(REFRESH_POLL){clearInterval(REFRESH_POLL);REFRESH_POLL=null;}}
+document.addEventListener("visibilitychange",()=>{const modal=$("#refreshmodal");if(document.visibilityState==="visible"&&modal&&!modal.hidden){loadRefreshRunStatus().then(()=>checkPublishedRefresh(false));}});
+
 /* ── shell (built once) ─────────────────────────────── */
 function buildShell(){
   const cur=localStorage.getItem("wci:theme")||"system";
@@ -450,6 +510,7 @@ function buildShell(){
      </div>
      <div class="gsearch">${I.search}<input id="gq" placeholder="Search companies, divisions, contacts\u2026" autocomplete="off"><span class="kbd">/</span></div>
      <div class="right">
+       <button class="refreshnav" id="refreshbtn" type="button">Refresh data</button>
        <span class="fresh ${stale?"stale":""}" title="Snapshot date"><span class="dot"></span>${d}</span>
        <button class="navbtn" id="themebtn" title="Theme (t)" onclick="cycleTheme()">${cur==="dark"?I.moon:I.sun}</button>
        <div class="firm" title="Woodson Equity">WE</div>
@@ -479,7 +540,21 @@ function buildShell(){
        <div class="foot">Woodson Equity &middot; ${fmtInt(META.universeScanned)} scanned<br>${fmtInt(META.secVerified)} SEC-verified</div>
      </aside>
      <div class="work"><div class="wrap" id="view"></div></div>
+   </div>
+   <div class="modalback" id="refreshmodal" role="dialog" aria-modal="true" aria-labelledby="refresh-title" hidden>
+     <div class="refreshcard">
+       <div class="refreshhead"><div><h2 id="refresh-title">Refresh tracker data</h2><p>Run the protected Woodson refresh, then leave this panel open while the new snapshot is published.</p></div><button class="iconbtn" id="close-refresh" type="button" aria-label="Close refresh panel">&times;</button></div>
+       <div class="refreshfacts"><div class="refreshfact"><div class="k">Current snapshot</div><div class="v">${d}</div></div><div class="refreshfact"><div class="k">Latest pipeline run</div><div class="v" id="refresh-run">Checking\u2026</div></div></div>
+       <div class="refreshstatus" id="refresh-status">Checking the refresh service\u2026</div>
+       <ol class="refreshsteps"><li>Open the secure refresh page and choose <strong>Run workflow</strong>.</li><li>Return to this tab. The tracker checks for the newly published data automatically.</li></ol>
+       <div class="refreshactions"><button class="btn ghost" id="check-refresh" type="button">Check for update</button><a class="btn primary" id="start-refresh" href="${REFRESH_WORKFLOW_URL}" target="_blank" rel="noopener">Start secure refresh</a></div>
+     </div>
    </div>`;
+  $("#refreshbtn").onclick=openRefreshPanel;
+  $("#close-refresh").onclick=closeRefreshPanel;
+  $("#refreshmodal").onclick=e=>{if(e.target===e.currentTarget)closeRefreshPanel();};
+  $("#check-refresh").onclick=()=>checkPublishedRefresh(true);
+  $("#start-refresh").onclick=()=>{setRefreshStatus("The secure refresh page is open. After choosing Run workflow there, return here and this panel will detect the update.");startRefreshPolling();};
   const gq=$("#gq");
   gq.addEventListener("input",e=>{const v=e.target.value;const r=parseHash();
     if(["banks","bank","bankers","banker"].includes(r.view)){
@@ -999,6 +1074,7 @@ function copyText(t,btn,label){navigator.clipboard.writeText(t).then(()=>{const 
 /* ── keyboard ───────────────────────────────────────── */
 document.addEventListener("keydown",e=>{
   const inField=/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+  if(e.key==="Escape"&&$("#refreshmodal")&&!$("#refreshmodal").hidden){closeRefreshPanel();return;}
   if(e.key==="/"&&!inField){const g=$("#gq");if(g){e.preventDefault();g.focus();}return;}
   if(e.key==="t"&&!inField){cycleTheme();return;}
   if(e.key==="Escape"&&e.target.id==="gq"){e.target.value="";if(EXP){EXP.query="";syncHash();refreshPipeline();}e.target.blur();}

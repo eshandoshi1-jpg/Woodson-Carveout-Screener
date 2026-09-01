@@ -1,3 +1,4 @@
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -80,6 +81,14 @@ class BankerCRMTests(unittest.TestCase):
         self.assertIn("Joel Mathew", template)
         self.assertNotIn("Joel Matthew", template.replace("Joel\\s+Matthew", ""))
 
+    def test_today_dashboard_and_suggested_banker_priority_are_present(self):
+        template = Path("data/woodson_app.template.html").read_text()
+        self.assertIn("What changed in the latest refresh", template)
+        self.assertIn("Priority banker outreach", template)
+        self.assertIn("function bankerSuggestedPriority", template)
+        self.assertIn("function bankerEffectivePriority", template)
+        self.assertIn("Use the relationship record to override it", template)
+
 
 class RefreshControlTests(unittest.TestCase):
     def test_manual_refresh_control_uses_protected_workflow(self):
@@ -94,6 +103,16 @@ class RefreshControlTests(unittest.TestCase):
         self.assertIn("exported_at = datetime.now(timezone.utc)", source)
         self.assertIn('"generatedAt": exported_at.strftime', source)
         self.assertIn('"dataAsOf": data_mtime.strftime', source)
+
+    def test_refresh_movements_use_committed_previous_tiers(self):
+        source = Path("export_snapshot.py").read_text()
+        pipeline = Path("pipeline_incremental.py").read_text()
+        workflow = Path(".github/workflows/refresh.yml").read_text()
+        previous = json.loads(Path("data/previous_tiers.json").read_text())
+        self.assertIn('PREVIOUS_TIERS = "data/previous_tiers.json"', source)
+        self.assertIn('PREVIOUS_TIERS = REPO / "data" / "previous_tiers.json"', pipeline)
+        self.assertIn("data/previous_tiers.json", workflow)
+        self.assertGreaterEqual(len(previous), 1000)
 
 
 class DealCloudDescriptionTests(unittest.TestCase):

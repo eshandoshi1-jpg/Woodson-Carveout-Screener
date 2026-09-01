@@ -126,6 +126,16 @@ h2,h3{margin:0;font-weight:650;letter-spacing:-.005em}
 .fchip button{border:none;background:transparent;color:var(--accent);padding:0;line-height:1;font-size:14px}
 .clearall{font-size:12px;font-weight:600;color:var(--text-secondary);background:transparent;border:none;text-decoration:underline}
 
+/* ── today dashboard ────────────────────────────────── */
+.todaystamp{display:flex;align-items:center;gap:8px;color:var(--text-secondary);font-size:12.5px;margin:-8px 0 14px}
+.todaystamp .dot{width:7px;height:7px;border-radius:50%;background:var(--positive)}
+.todaylist a{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;padding:11px 16px;border-bottom:1px solid var(--border);color:var(--text)}
+.todaylist a:last-child{border-bottom:none}.todaylist a:hover{background:var(--accent-soft);text-decoration:none}
+.todaylist .main{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.todaylist .sub{font-size:12px;color:var(--text-secondary);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.todaylist .when{grid-row:1/3;grid-column:2;align-self:center;font-size:12px;color:var(--text-muted);white-space:nowrap;text-align:right}
+.todayempty{padding:28px 18px;text-align:center;color:var(--text-secondary);font-size:13px}
+
 /* ── cards / stats ───────────────────────────────────── */
 .statband{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;position:relative;box-shadow:var(--shadow)}
@@ -301,6 +311,12 @@ tbody tr.row.kbd{box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-
 .crmstatus.follow_up_due{background:var(--warn-soft);color:var(--warn)} .crmstatus.follow_up_due::before{background:var(--warn)}
 .crmstatus.do_not_contact{background:rgba(163,50,50,.13);color:var(--negative)} .crmstatus.do_not_contact::before{background:var(--negative)}
 .crmstatus.approved{background:var(--accent-soft);color:var(--accent)} .crmstatus.approved::before{background:var(--accent)}
+.prioritybadge{display:inline-flex;align-items:center;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:5px;white-space:nowrap}
+.prioritybadge.high{background:rgba(163,50,50,.13);color:var(--negative)}
+.prioritybadge.medium{background:var(--warn-soft);color:var(--warn)}
+.prioritybadge.low,.prioritybadge.none{background:var(--group);color:var(--text-secondary)}
+.prioritywhy{border:1px solid var(--border);background:var(--bg);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:12.5px;color:var(--text-secondary);line-height:1.5}
+.prioritywhy strong{color:var(--text)}
 .crmform{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 16px}
 .crmform .wide{grid-column:1/-1}
 .crmfield{display:flex;flex-direction:column;gap:5px}
@@ -526,13 +542,14 @@ function buildShell(){
    <div class="body">
      <aside class="side" id="side">
        <div class="grp-l">Dashboards</div>
-       <a data-nav="overview" href="#/overview">Overview</a>
+       <a data-nav="overview" href="#/overview">Today</a>
        <div class="grp-l">Pipeline</div>
        <a data-nav="pipeline" href="#/pipeline">Carveout Targets <span class="c">${COMPANIES.length.toLocaleString()}</span></a>
        <a data-nav="outreach" href="#/outreach">Outreach Queue <span class="c">${N_QUEUE}</span></a>
        <div class="grp-l">Relationships</div>
        <a data-nav="banks" href="#/banks">Investment Banks <span class="c">${BANKS.length.toLocaleString()}</span></a>
        <a data-nav="bankers" href="#/bankers">Bankers <span class="c">${BANKERS.length.toLocaleString()}</span></a>
+       <a data-saved="banker-priority" href="#/bankers?view=priority">High-priority bankers <span class="c" id="banker-priority-count">${bankerHighPriorityCount()}</span></a>
        <a data-saved="bank-tier3" href="#/banks?view=tier3">Tier 3 banks <span class="c">${BANKS.filter(b=>b.tier===3).length}</span></a>
        <a data-saved="bank-tier4" href="#/banks?view=tier4">Tier 4 banks <span class="c">${BANKS.filter(b=>b.tier===4).length}</span></a>
        <a data-saved="banker-followups" href="#/bankers?view=followups">Follow-up due <span class="c" id="banker-followup-count">${bankerFollowUpCount()}</span></a>
@@ -575,7 +592,7 @@ function render(){
   if(!$("#app .nav"))buildShell();
   const r=parseHash();
   document.querySelectorAll(".side a[data-nav]").forEach(a=>a.classList.toggle("on",a.dataset.nav===r.view||(r.view==="company"&&a.dataset.nav==="pipeline")||(r.view==="outreach-batch"&&a.dataset.nav==="outreach")||(r.view==="bank"&&a.dataset.nav==="banks")||(r.view==="banker"&&a.dataset.nav==="bankers")));
-  document.querySelectorAll(".side a[data-saved]").forEach(a=>{const saved=a.dataset.saved;const on=saved==="contacted"?(r.view==="outreach"&&r.q.get("status")==="contacted"):saved==="bank-tier3"?(r.view==="banks"&&r.q.get("view")==="tier3"):saved==="bank-tier4"?(r.view==="banks"&&r.q.get("view")==="tier4"):saved==="banker-followups"?(r.view==="bankers"&&r.q.get("view")==="followups"):saved==="banker-contacted"?(r.view==="bankers"&&r.q.get("view")==="contacted"):false;a.classList.toggle("on",on);});
+  document.querySelectorAll(".side a[data-saved]").forEach(a=>{const saved=a.dataset.saved;const on=saved==="contacted"?(r.view==="outreach"&&r.q.get("status")==="contacted"):saved==="bank-tier3"?(r.view==="banks"&&r.q.get("view")==="tier3"):saved==="bank-tier4"?(r.view==="banks"&&r.q.get("view")==="tier4"):saved==="banker-priority"?(r.view==="bankers"&&r.q.get("view")==="priority"):saved==="banker-followups"?(r.view==="bankers"&&r.q.get("view")==="followups"):saved==="banker-contacted"?(r.view==="bankers"&&r.q.get("view")==="contacted"):false;a.classList.toggle("on",on);});
   const v=$("#view");
   if(r.view==="pipeline")renderPipeline(v,r.q);
   else if(r.view==="company")renderCompany(v,r.id);
@@ -616,22 +633,35 @@ function renderOverview(v){
   const counts=SIG_ORDER.map(t=>({t,n:COMPANIES.filter(c=>c._live.some(s=>s.type===t)).length}));
   const maxc=Math.max(...counts.map(c=>c.n),1);
   const recent=COMPANIES.flatMap(c=>c._hard.filter(s=>s.date).map(s=>({c,s}))).sort((a,b)=>new Date(b.s.date)-new Date(a.s.date)).slice(0,7);
-  const nFit=COMPANIES.filter(c=>c.hasFitDivision).length;
-  const nPossible=COMPANIES.filter(c=>c.hasPossibleFitDivision&&!c.hasFitDivision).length;
+  const ready=COMPANIES.filter(c=>!outreachBlockReason(c)).sort((a,b)=>Number(b.hasFitDivision)-Number(a.hasFitDivision)||b.score-a.score);
+  const followups=BANKERS.filter(isFollowUpDue).sort((a,b)=>(bankerState(a).nextFollowUp||"").localeCompare(bankerState(b).nextFollowUp||"")||bankerPriorityScore(b)-bankerPriorityScore(a));
+  const priority= BANKERS.filter(p=>bankerEffectivePriority(p)==="high"&&bankerState(p).status!=="do_not_contact"&&!isBankerContacted(p)).sort((a,b)=>bankerPriorityScore(b)-bankerPriorityScore(a)||a.bank.localeCompare(b.bank));
+  const approved=BANKERS.filter(p=>bankerState(p).status==="approved").length;
+  const refreshDay=META.coverage&&META.coverage.highWater?crmDate(META.coverage.highWater):"Coverage date unavailable";
+  const published=META.generatedAt?new Date(META.generatedAt).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}):"Unknown";
   v.innerHTML=`
     <div class="crumb">Dashboards</div>
-    <div class="ptitle"><h1>Overview</h1></div>
-    ${CHANGES.length?`<div class="movers"><span class="movers-l">Moved since last refresh</span>${CHANGES.map(ch=>{const id=ch.ticker||slug(ch.company);return `<a class="mover" href="#/company/${id}">${esc(ch.company)} <span class="mv-t">${tierLabel(ch.prevTier)} \u2192 ${tierLabel(ch.newTier)}</span>${ch.hasFitDivision?'<span class="mv-fit" title="Has a Woodson-sized division"></span>':""}</a>`;}).join("")}</div>`:""}
+    <div class="ptitle"><h1>Today</h1></div>
+    <div class="todaystamp"><span class="dot"></span>SEC filings checked through ${refreshDay} &middot; Snapshot published ${published}</div>
     <div class="statband">
-      ${statCard(fmtInt(META.universeScanned),"Universe scanned","the full corporate list",null)}
-      ${statCard(fmtInt(META.secVerified),"SEC-verified","identity-confirmed",null)}
-      ${statCard(N_T1,"Tier 1 targets","highest conviction","#/pipeline?tier=1")}
-      ${statCard(N_T2,"Tier 2 prospects","next tier","#/pipeline?tier=2")}
-      ${statCard(fmtInt(N_LIVE),"Live signals","timing window open","#/pipeline?signal=held_for_sale,exploring_alternatives,activist_13d")}
-      ${statCard(fmtInt(nFit),"Confirmed fits",`${nPossible} more need EBITDA verification`,"#/pipeline?fit=1")}
+      ${statCard(CHANGES.length,"Upgraded targets","latest meaningful refresh",null)}
+      ${statCard(N_T1,"Tier 1 today","highest-conviction companies","#/pipeline?tier=1")}
+      ${statCard(ready.length,"Corporate drafts ready","not previously contacted","#/outreach")}
+      ${statCard(bankerHighPriorityCount(),"High-priority bankers","suggested plus manual","#/bankers?view=priority")}
+      ${statCard(followups.length,"Banker follow-ups due","next action required","#/bankers?view=followups")}
+      ${statCard(approved,"Approved bankers","ready for outreach","#/bankers?view=approved")}
     </div>
     <div class="panel">
-      <div class="panel-h"><h2>Top targets</h2><span class="sub">Tier 1, by propensity</span><a class="link" href="#/pipeline?tier=1,2">Open pipeline ${I.arr}</a></div>
+      <div class="panel-h"><h2>What changed in the latest refresh</h2><span class="sub">New upgrades remain visible until a later refresh produces new movements</span><a class="link" href="#/pipeline">Open pipeline ${I.arr}</a></div>
+      ${CHANGES.length?`<div class="gridwrap"><table><thead><tr><th>Company</th><th>Movement</th><th class="num">Score</th><th>Candidate division</th><th>Fit</th><th></th></tr></thead><tbody>${CHANGES.map(ch=>{const c=BY_ID[ch.ticker||slug(ch.company)]||COMPANIES.find(x=>x.company===ch.company),id=c?c._id:(ch.ticker||slug(ch.company));return `<tr class="row" onclick="go('#/company/${id}')"><td><span class="dealname">${esc(ch.company)}</span></td><td><span class="mv-t">${tierLabel(ch.prevTier)} \u2192 ${tierLabel(ch.newTier)}</span></td><td class="num">${scoreCell(ch.score||c?.score||0)}</td><td>${c&&c.candidateDivision?esc(c.candidateDivision.name):'<span class="muted">\u2014</span>'}</td><td>${ch.hasFitDivision?'<span class="mtag mtag-fit">Confirmed fit</span>':ch.hasPossibleFitDivision?'<span class="mtag mtag-possible">Verify EBITDA</span>':'<span class="muted">\u2014</span>'}</td><td class="num chev">${I.chev}</td></tr>`;}).join("")}</tbody></table></div>`:'<div class="todayempty">No companies moved into a higher tier in the latest meaningful refresh.</div>'}
+    </div>
+    <div class="twocol">
+      <div class="panel"><div class="panel-h"><h2>Banker follow-ups due</h2><a class="link" href="#/bankers?view=followups">View all ${I.arr}</a></div><div class="todaylist">${followups.length?followups.slice(0,7).map(p=>{const s=bankerState(p);return `<a href="#/banker/${p.id}"><span class="main">${esc(p.name)}</span><span class="sub">${esc(p.bank)} &middot; ${esc(CRM_PRIORITY[bankerEffectivePriority(p)])}</span><span class="when">Due ${crmDate(s.nextFollowUp)}</span></a>`;}).join(""):'<div class="todayempty">No banker follow-ups are due.</div>'}</div></div>
+      <div class="panel"><div class="panel-h"><h2>Priority banker outreach</h2><a class="link" href="#/bankers?view=priority">View all ${I.arr}</a></div><div class="todaylist">${priority.length?priority.slice(0,7).map(p=>`<a href="#/banker/${p.id}"><span class="main">${esc(p.name)}</span><span class="sub">${esc(p.bank)} &middot; ${esc(p.seniority)}</span><span class="when">${priorityBadge("high")}</span></a>`).join(""):'<div class="todayempty">No uncontacted high-priority bankers remain.</div>'}</div></div>
+    </div>
+    ${crmNotice()}
+    <div class="panel">
+      <div class="panel-h"><h2>Top corporate targets</h2><span class="sub">Tier 1, by propensity</span><a class="link" href="#/pipeline?tier=1,2">Open pipeline ${I.arr}</a></div>
       <div class="gridwrap"><table><thead><tr><th>Company</th><th>Candidate division</th><th class="num">Div. rev.</th><th class="num">Score</th><th>Strongest signal</th><th>Contact</th><th></th></tr></thead>
       <tbody>${top.map(c=>pipeRow(c)).join("")}</tbody></table></div>
     </div>
@@ -846,14 +876,29 @@ const CRM_STATUS={not_reviewed:"Not reviewed",approved:"Approved to contact",con
 const CRM_PRIORITY={none:"Not prioritized",high:"High",medium:"Medium",low:"Low"};
 const BANKER_SUBJECT="Intro to Woodson Equity";
 const SENIORITY_ORDER={"Senior decision-maker":0,"Director / VP / Principal":1,"Associate / Analyst":2,Other:3,Unknown:4};
+const PRIORITY_ORDER={high:0,medium:1,low:2,none:3};
 const crmDate=iso=>{if(!iso)return "\u2014";const d=new Date(iso+"T00:00:00");return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});};
 const crmOptions=(items,selected)=>Object.entries(items).map(([value,label])=>`<option value="${value}" ${selected===value?"selected":""}>${esc(label)}</option>`).join("");
 const crmStatusChip=status=>`<span class="crmstatus ${status||"not_reviewed"}">${esc(CRM_STATUS[status]||CRM_STATUS.not_reviewed)}</span>`;
 const bankTierBadge=bank=>`<span class="badge b-bank-t${bank.tier}">Tier ${bank.tier}</span>`;
 const crmNotice=()=>`<div class="crmnotice"><strong>Relationship activity is saved in this browser.</strong> Use Download activity as a backup until shared HubSpot or database access is connected.</div>`;
+function bankerPriorityScore(p){
+  const bank=BANK_BY_ID[p.bankId],s=bankerState(p);if(s.status==="do_not_contact")return -100;
+  let score=bank&&bank.tier===3?40:15;
+  score+=({"Senior decision-maker":30,"Director / VP / Principal":20,"Associate / Analyst":10,Other:5,Unknown:0}[p.seniority]||0);
+  if(p.email)score+=10;
+  if(bank){const firmPriority=bankState(bank).priority;if(firmPriority==="high")score+=20;else if(firmPriority==="medium")score+=10;}
+  if(isFollowUpDue(p))score+=25;else if(s.status==="approved")score+=15;else if(["replied","relationship_active"].includes(s.status))score+=10;
+  return score;
+}
+function bankerSuggestedPriority(p){const score=bankerPriorityScore(p);return score>=75?"high":score>=55?"medium":"low";}
+function bankerEffectivePriority(p){const manual=bankerState(p).priority;return manual&&manual!=="none"?manual:bankerSuggestedPriority(p);}
+function bankerPriorityReason(p){const bank=BANK_BY_ID[p.bankId],s=bankerState(p),firmPriority=bank?bankState(bank).priority:null,bits=[bank?`Tier ${bank.tier} firm`:null,firmPriority&&firmPriority!=="none"?`${CRM_PRIORITY[firmPriority]} firm priority`:null,p.seniority,p.email?"verified email":null,isFollowUpDue(p)?"follow-up due":s.status==="approved"?"approved to contact":null].filter(Boolean);return bits.join(" \u00b7 ");}
+function priorityBadge(priority,manual=false){return `<span class="prioritybadge ${priority}">${esc(CRM_PRIORITY[priority])}${manual?" \u00b7 manual":""}</span>`;}
+function bankerHighPriorityCount(){return BANKERS.filter(p=>bankerEffectivePriority(p)==="high"&&bankerState(p).status!=="do_not_contact").length;}
 function bankerFirstName(name){const parts=String(name||"").trim().split(/\s+/);return parts.find(part=>!/^(mr|ms|mrs|dr)\.?$/i.test(part)&&!/^[a-z]\.?$/i.test(part))||"there";}
 function bankerEmail(p){return `Hi ${bankerFirstName(p.name)},\n\nI'm with Woodson Equity, a middle market private equity firm with offices in Chicago and DC. We target companies that are $75M to $1B in revenues with greater than $10M in EBITDA. We largely focus on diversified industrials, automotive, transportation & mobility, and business services.\n\nI'd love to get a deal done with ${p.bank} this year and happy to give a quick read if there's something currently in the market or coming down the pipeline that makes sense.\n\nAttaching our firm overview for additional context on Woodson. I look forward to connecting.\n\nThanks,\n\nJoel Mathew`;}
-function refreshBankerCounts(){const c=$("#banker-contacted-count"),f=$("#banker-followup-count");if(c)c.textContent=bankerContactedCount();if(f)f.textContent=bankerFollowUpCount();}
+function refreshBankerCounts(){const c=$("#banker-contacted-count"),f=$("#banker-followup-count"),p=$("#banker-priority-count");if(c)c.textContent=bankerContactedCount();if(f)f.textContent=bankerFollowUpCount();if(p)p.textContent=bankerHighPriorityCount();}
 function crmPatch(scope,id,patch){const current=BANKER_CRM[scope][id]||{};BANKER_CRM[scope][id]={...current,...patch,updatedAt:new Date().toISOString()};saveBankerCRM();render();}
 function bankPeople(bank){return BANKERS_BY_BANK[bank.id]||[];}
 function bankDerivedStatus(bank){
@@ -898,8 +943,8 @@ function renderBank(v,id){
   const bank=BANK_BY_ID[id];if(!bank){v.innerHTML='<div class="empty"><div class="big">Bank not found.</div><a href="#/banks">Back to banks</a></div>';return;}
   const s=bankState(bank),people=bankPeople(bank).slice().sort((a,b)=>(SENIORITY_ORDER[a.seniority]-SENIORITY_ORDER[b.seniority])||a.name.localeCompare(b.name));
   v.innerHTML=`<div class="crumb"><a href="#/banks">Investment Banks</a> / ${esc(bank.name)}</div><div class="ptitle"><h1>${esc(bank.name)}</h1><div class="rt">${bankTierBadge(bank)}${crmStatusChip(bankDerivedStatus(bank))}</div></div>${crmNotice()}
-    <div class="crmsplit"><div class="panel"><div class="panel-h"><h2>Bankers</h2><span class="sub">${people.length} contacts, ${bank.seniorContactCount} senior decision-makers</span></div><div class="gridwrap"><table><thead><tr><th>Name</th><th>Title</th><th>Seniority</th><th>Email</th><th>Status</th><th>Next follow-up</th><th></th></tr></thead><tbody>
-      ${people.map(p=>{const ps=bankerState(p);return `<tr class="row" onclick="go('#/banker/${p.id}')"><td><span class="dealname">${esc(p.name)}</span></td><td class="sec">${esc(p.title||"\u2014")}</td><td><span class="tag">${esc(p.seniority)}</span></td><td class="crmemail">${esc(p.email||"\u2014")}</td><td>${crmStatusChip(isFollowUpDue(p)?"follow_up_due":ps.status)}</td><td class="sec">${crmDate(ps.nextFollowUp)}</td><td class="num chev">${I.chev}</td></tr>`;}).join("")}</tbody></table></div></div>
+    <div class="crmsplit"><div class="panel"><div class="panel-h"><h2>Bankers</h2><span class="sub">${people.length} contacts, ${bank.seniorContactCount} senior decision-makers</span></div><div class="gridwrap"><table><thead><tr><th>Name</th><th>Priority</th><th>Title</th><th>Seniority</th><th>Email</th><th>Status</th><th>Next follow-up</th><th></th></tr></thead><tbody>
+      ${people.map(p=>{const ps=bankerState(p);return `<tr class="row" onclick="go('#/banker/${p.id}')"><td><span class="dealname">${esc(p.name)}</span></td><td>${priorityBadge(bankerEffectivePriority(p),!!(ps.priority&&ps.priority!=="none"))}</td><td class="sec">${esc(p.title||"\u2014")}</td><td><span class="tag">${esc(p.seniority)}</span></td><td class="crmemail">${esc(p.email||"\u2014")}</td><td>${crmStatusChip(isFollowUpDue(p)?"follow_up_due":ps.status)}</td><td class="sec">${crmDate(ps.nextFollowUp)}</td><td class="num chev">${I.chev}</td></tr>`;}).join("")}</tbody></table></div></div>
       <div class="panel"><div class="panel-h"><h2>Relationship record</h2></div><div style="padding:16px"><div class="crmform">
         <div class="crmfield"><label for="bank-priority">Priority</label><select id="bank-priority">${crmOptions(CRM_PRIORITY,s.priority||"none")}</select></div>
         <div class="crmfield"><label for="bank-status">Status</label><select id="bank-status">${crmOptions(CRM_STATUS,s.status||"not_reviewed")}</select></div>
@@ -917,25 +962,28 @@ function renderBankerList(v,q){
   if(view==="senior")people=people.filter(p=>p.seniority==="Senior decision-maker");
   else if(view==="tier3")people=people.filter(p=>BANK_BY_ID[p.bankId]&&BANK_BY_ID[p.bankId].tier===3);
   else if(view==="tier4")people=people.filter(p=>BANK_BY_ID[p.bankId]&&BANK_BY_ID[p.bankId].tier===4);
+  else if(view==="priority")people=people.filter(p=>bankerEffectivePriority(p)==="high"&&bankerState(p).status!=="do_not_contact");
+  else if(view==="approved")people=people.filter(p=>bankerState(p).status==="approved");
   else if(view==="contacted")people=people.filter(isBankerContacted);
   else if(view==="followups")people=people.filter(isFollowUpDue);
-  people.sort((a,b)=>Number(isFollowUpDue(b))-Number(isFollowUpDue(a))||((BANK_BY_ID[a.bankId]?.tier||9)-(BANK_BY_ID[b.bankId]?.tier||9))||(SENIORITY_ORDER[a.seniority]-SENIORITY_ORDER[b.seniority])||a.bank.localeCompare(b.bank)||a.name.localeCompare(b.name));
+  people.sort((a,b)=>Number(isFollowUpDue(b))-Number(isFollowUpDue(a))||(PRIORITY_ORDER[bankerEffectivePriority(a)]-PRIORITY_ORDER[bankerEffectivePriority(b)])||bankerPriorityScore(b)-bankerPriorityScore(a)||((BANK_BY_ID[a.bankId]?.tier||9)-(BANK_BY_ID[b.bankId]?.tier||9))||(SENIORITY_ORDER[a.seniority]-SENIORITY_ORDER[b.seniority])||a.bank.localeCompare(b.bank)||a.name.localeCompare(b.name));
   const pages=Math.max(1,Math.ceil(people.length/pageSize)),page=Math.min(pages,Math.max(1,Number(q.get("page"))||1)),shown=people.slice((page-1)*pageSize,page*pageSize);
   const href=p=>crmHash("bankers",{view,q:query,page:p});
   v.innerHTML=`<div class="crumb">Relationships</div><div class="ptitle"><h1>Bankers</h1><div class="rt"><button class="btn ghost" id="download-crm">Download activity</button></div></div>
-    <div class="statband" style="grid-template-columns:repeat(4,1fr)">${statCard(BANKERS.length.toLocaleString(),"Banker contacts",`${BANKS.length} firms`,null)}${statCard(BANKERS.filter(p=>p.seniority==="Senior decision-maker").length.toLocaleString(),"Senior decision-makers","partners, MDs, and firm leaders",crmHash("bankers",{view:"senior"}))}${statCard(bankerContactedCount(),"Contacted","relationship history started",crmHash("bankers",{view:"contacted"}))}${statCard(bankerFollowUpCount(),"Follow-up due","next action required",crmHash("bankers",{view:"followups"}))}</div>
-    ${crmNotice()}<div class="pills"><a class="pill ${view==="all"?"on":""}" href="${crmHash("bankers",{q:query})}">All bankers</a><a class="pill ${view==="tier3"?"on":""}" href="${crmHash("bankers",{view:"tier3",q:query})}">Tier 3 firms</a><a class="pill ${view==="tier4"?"on":""}" href="${crmHash("bankers",{view:"tier4",q:query})}">Tier 4 firms</a><a class="pill ${view==="senior"?"on":""}" href="${crmHash("bankers",{view:"senior",q:query})}">Senior decision-makers</a><a class="pill ${view==="contacted"?"on":""}" href="${crmHash("bankers",{view:"contacted",q:query})}">Contacted</a><a class="pill ${view==="followups"?"on":""}" href="${crmHash("bankers",{view:"followups",q:query})}">Follow-up due</a></div>
+    <div class="statband" style="grid-template-columns:repeat(4,1fr)">${statCard(BANKERS.length.toLocaleString(),"Banker contacts",`${BANKS.length} firms`,null)}${statCard(bankerHighPriorityCount().toLocaleString(),"High priority","suggested plus manual",crmHash("bankers",{view:"priority"}))}${statCard(bankerContactedCount(),"Contacted","relationship history started",crmHash("bankers",{view:"contacted"}))}${statCard(bankerFollowUpCount(),"Follow-up due","next action required",crmHash("bankers",{view:"followups"}))}</div>
+    ${crmNotice()}<div class="pills"><a class="pill ${view==="all"?"on":""}" href="${crmHash("bankers",{q:query})}">All bankers</a><a class="pill ${view==="priority"?"on":""}" href="${crmHash("bankers",{view:"priority",q:query})}">High priority</a><a class="pill ${view==="approved"?"on":""}" href="${crmHash("bankers",{view:"approved",q:query})}">Approved</a><a class="pill ${view==="tier3"?"on":""}" href="${crmHash("bankers",{view:"tier3",q:query})}">Tier 3 firms</a><a class="pill ${view==="tier4"?"on":""}" href="${crmHash("bankers",{view:"tier4",q:query})}">Tier 4 firms</a><a class="pill ${view==="senior"?"on":""}" href="${crmHash("bankers",{view:"senior",q:query})}">Senior decision-makers</a><a class="pill ${view==="contacted"?"on":""}" href="${crmHash("bankers",{view:"contacted",q:query})}">Contacted</a><a class="pill ${view==="followups"?"on":""}" href="${crmHash("bankers",{view:"followups",q:query})}">Follow-up due</a></div>
     <div class="crmpager"><span>${people.length.toLocaleString()} results \u00b7 page ${page} of ${pages}</span><a class="btn ghost sm" ${page>1?`href="${href(page-1)}"`:'style="pointer-events:none;opacity:.45"'}>Previous</a><a class="btn ghost sm" ${page<pages?`href="${href(page+1)}"`:'style="pointer-events:none;opacity:.45"'}>Next</a></div>
-    <div class="panel"><div class="gridwrap"><table><thead><tr><th>Banker</th><th>Bank</th><th>Firm tier</th><th>Title</th><th>Seniority</th><th>Location</th><th>Status</th><th>Last contact</th><th>Next follow-up</th><th></th></tr></thead><tbody>
-      ${shown.map(p=>{const s=bankerState(p),bank=BANK_BY_ID[p.bankId];return `<tr class="row" onclick="go('#/banker/${p.id}')"><td><span class="dealname">${esc(p.name)}</span></td><td>${esc(p.bank)}</td><td>${bank?bankTierBadge(bank):"\u2014"}</td><td class="sec">${esc(p.title||"\u2014")}</td><td><span class="tag">${esc(p.seniority)}</span></td><td class="sec">${esc(p.location||"\u2014")}</td><td>${crmStatusChip(isFollowUpDue(p)?"follow_up_due":s.status)}</td><td class="sec">${crmDate(s.lastContactedAt)}</td><td class="sec">${crmDate(s.nextFollowUp)}</td><td class="num chev">${I.chev}</td></tr>`;}).join("")||'<tr><td colspan="10"><div class="empty">No bankers match this view.</div></td></tr>'}
+    <div class="panel"><div class="gridwrap"><table><thead><tr><th>Banker</th><th>Bank</th><th>Firm tier</th><th>Priority</th><th>Title</th><th>Seniority</th><th>Location</th><th>Status</th><th>Last contact</th><th>Next follow-up</th><th></th></tr></thead><tbody>
+      ${shown.map(p=>{const s=bankerState(p),bank=BANK_BY_ID[p.bankId],manual=!!(s.priority&&s.priority!=="none");return `<tr class="row" onclick="go('#/banker/${p.id}')"><td><span class="dealname">${esc(p.name)}</span></td><td>${esc(p.bank)}</td><td>${bank?bankTierBadge(bank):"\u2014"}</td><td>${priorityBadge(bankerEffectivePriority(p),manual)}</td><td class="sec">${esc(p.title||"\u2014")}</td><td><span class="tag">${esc(p.seniority)}</span></td><td class="sec">${esc(p.location||"\u2014")}</td><td>${crmStatusChip(isFollowUpDue(p)?"follow_up_due":s.status)}</td><td class="sec">${crmDate(s.lastContactedAt)}</td><td class="sec">${crmDate(s.nextFollowUp)}</td><td class="num chev">${I.chev}</td></tr>`;}).join("")||'<tr><td colspan="11"><div class="empty">No bankers match this view.</div></td></tr>'}
     </tbody></table></div></div><div class="crmpager"><span>Showing ${shown.length} of ${people.length.toLocaleString()}</span><a class="btn ghost sm" ${page>1?`href="${href(page-1)}"`:'style="pointer-events:none;opacity:.45"'}>Previous</a><a class="btn ghost sm" ${page<pages?`href="${href(page+1)}"`:'style="pointer-events:none;opacity:.45"'}>Next</a></div>`;
   $("#download-crm").onclick=downloadBankerCRM;
 }
 function renderBanker(v,id){
   const p=BANKER_BY_ID[id];if(!p){v.innerHTML='<div class="empty"><div class="big">Banker not found.</div><a href="#/bankers">Back to bankers</a></div>';return;}
   const s=bankerState(p),bank=BANK_BY_ID[p.bankId],displayStatus=isFollowUpDue(p)?"follow_up_due":s.status,draft=bankerEmail(p);
-  v.innerHTML=`<div class="crumb"><a href="#/bankers">Bankers</a> / ${bank?`<a href="#/bank/${bank.id}">${esc(bank.name)}</a> / `:""}${esc(p.name)}</div><div class="ptitle"><h1>${esc(p.name)}</h1><div class="rt">${bank?bankTierBadge(bank):""}${crmStatusChip(displayStatus)}</div></div>${crmNotice()}
-    <div class="crmsplit"><div><div class="panel"><div class="profile"><div class="profile-h"><h2>${esc(p.name)}</h2><span class="tag">${esc(p.seniority)}</span></div><div class="why" style="margin-top:5px">${esc(p.title||"Title unavailable")} at <a href="#/bank/${p.bankId}">${esc(p.bank)}</a></div><div class="crmmeta">${p.location?`<span>${esc(p.location)}</span>`:""}${p.email?`<a class="crmemail" href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:'<span class="muted">Email unavailable</span>'}</div></div></div>
+  const manualPriority=!!(s.priority&&s.priority!=="none"),suggested=bankerSuggestedPriority(p);
+  v.innerHTML=`<div class="crumb"><a href="#/bankers">Bankers</a> / ${bank?`<a href="#/bank/${bank.id}">${esc(bank.name)}</a> / `:""}${esc(p.name)}</div><div class="ptitle"><h1>${esc(p.name)}</h1><div class="rt">${bank?bankTierBadge(bank):""}${priorityBadge(bankerEffectivePriority(p),manualPriority)}${crmStatusChip(displayStatus)}</div></div>${crmNotice()}
+    <div class="crmsplit"><div><div class="panel"><div class="profile"><div class="profile-h"><h2>${esc(p.name)}</h2><span class="tag">${esc(p.seniority)}</span></div><div class="why" style="margin-top:5px">${esc(p.title||"Title unavailable")} at <a href="#/bank/${p.bankId}">${esc(p.bank)}</a></div><div class="crmmeta">${p.location?`<span>${esc(p.location)}</span>`:""}${p.email?`<a class="crmemail" href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:'<span class="muted">Email unavailable</span>'}</div><div class="prioritywhy">${manualPriority?`Manual priority: <strong>${esc(CRM_PRIORITY[s.priority])}</strong> &middot; Suggested: ${esc(CRM_PRIORITY[suggested])}`:`Suggested priority: <strong>${esc(CRM_PRIORITY[suggested])}</strong>`} &middot; ${esc(bankerPriorityReason(p))}. Use the relationship record to override it.</div></div></div>
       <div class="crmactions">${p.email?`<a class="btn ghost" href="mailto:${esc(p.email)}">Open mailbox</a><button class="btn ghost" id="copy-banker-address">${I.copy} Copy address</button>`:""}<button class="btn ghost" id="mark-banker-contacted">${s.lastContactedAt?"Update contact date":"Mark as contacted"}</button></div>
       <div class="lbl">Banker outreach draft</div><div class="warnline">The firm overview is not stored in the tracker and the current version is outdated. Attach an updated overview before sending this draft.</div><div class="letter"><div class="subj"><span>Subject:</span>${esc(BANKER_SUBJECT)}</div><div class="lbody" id="banker-email-body">${esc(draft)}</div></div><div class="obtns"><button class="btn ghost" id="copy-banker-subject">${I.copy} Copy subject</button><button class="btn primary" id="copy-banker-body">${I.copy} Copy email</button></div></div>
       <div class="panel"><div class="panel-h"><h2>Banker relationship record</h2></div><div style="padding:16px"><div class="crmform">
@@ -956,7 +1004,7 @@ function renderBanker(v,id){
 function wireCrmForm(scope,id,prefix,fields){fields.forEach(field=>{const el=$(`#${prefix}-${field}`);if(el)el.addEventListener("change",()=>crmPatch(scope,id,{[field]:el.value}));});}
 function downloadBankerCRM(){
   const cell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
-  const rows=[["Bank","Firm tier","Banker","Title","Email","Seniority","Status","Priority","Owner","Coverage","Last contact","Next follow-up","Notes"],...BANKERS.map(p=>{const s=bankerState(p),bank=BANK_BY_ID[p.bankId];return [p.bank,bank?`Tier ${bank.tier}`:"",p.name,p.title,p.email,p.seniority,CRM_STATUS[s.status||"not_reviewed"],CRM_PRIORITY[s.priority||"none"],s.owner,s.coverage,s.lastContactedAt,s.nextFollowUp,s.notes];})];
+  const rows=[["Bank","Firm tier","Banker","Title","Email","Seniority","Status","Effective priority","Suggested priority","Manual override","Owner","Coverage","Last contact","Next follow-up","Notes"],...BANKERS.map(p=>{const s=bankerState(p),bank=BANK_BY_ID[p.bankId],manual=s.priority&&s.priority!=="none"?CRM_PRIORITY[s.priority]:"";return [p.bank,bank?`Tier ${bank.tier}`:"",p.name,p.title,p.email,p.seniority,CRM_STATUS[s.status||"not_reviewed"],CRM_PRIORITY[bankerEffectivePriority(p)],CRM_PRIORITY[bankerSuggestedPriority(p)],manual,s.owner,s.coverage,s.lastContactedAt,s.nextFollowUp,s.notes];})];
   const blob=new Blob([rows.map(r=>r.map(cell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="woodson-banker-relationships.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 

@@ -28,6 +28,7 @@ ENRICHED = "data/woodson_enriched.xlsx"
 OUT = "data/snapshot.json"
 BANKER_CRM = "data/banker_crm.json"
 UNIVERSE = "data/universe.csv"
+PREVIOUS_TIERS = "data/previous_tiers.json"
 UNIVERSE_SCANNED = 1107          # total companies the full run scanned (incl. unresolved)
 
 # signal type -> (hard?, Factor_Links_JSON key or None)
@@ -457,11 +458,15 @@ def main():
 
     # what moved since the previous snapshot — tier upgrades (from the last refresh's re-scan)
     changes = []
-    prev_path = Path("data/woodson_enriched_prev.xlsx")
+    prev_tier = {}
+    prev_path = Path(PREVIOUS_TIERS)
     if prev_path.exists():
         try:
-            pv = pd.read_excel(prev_path, engine="openpyxl").drop_duplicates("Company")
-            prev_tier = dict(zip(pv["Company"], pv["Tier"].astype(str)))
+            prev_tier = json.loads(prev_path.read_text())
+        except Exception:
+            prev_tier = {}
+    if prev_tier:
+        try:
             rank = {"Tier 1": 0, "Tier 2": 1, "Tier 3": 2, "Watchlist": 3, "Drop": 4}
             for _, r in co.iterrows():
                 pt, ct = prev_tier.get(r["Company"]), str(r.get("Tier"))

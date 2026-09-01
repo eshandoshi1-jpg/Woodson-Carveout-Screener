@@ -60,7 +60,7 @@ jobs:
         run: |
           git config user.name  "woodson-refresh[bot]"
           git config user.email "actions@users.noreply.github.com"
-          git add web/snapshot.json web/index.html data/snapshot.json data/woodson_intelligence.html data/woodson_enriched.xlsx data/state.json
+          git add web/snapshot.json web/index.html data/snapshot.json data/woodson_intelligence.html data/woodson_enriched.xlsx data/state.json data/previous_tiers.json
           if git diff --cached --quiet; then
             echo "No changes to publish."
           else

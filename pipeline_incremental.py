@@ -23,7 +23,6 @@ import json
 import time
 import logging
 import datetime as dt
-import shutil
 from pathlib import Path
 
 import requests
@@ -39,6 +38,7 @@ REPO = Path(__file__).parent
 ENRICHED = REPO / "data" / "woodson_enriched.xlsx"
 UNIVERSE = REPO / "data" / "universe.csv"
 STATE = REPO / "data" / "state.json"
+PREVIOUS_TIERS = REPO / "data" / "previous_tiers.json"
 BUILD = REPO / "data" / "build"
 
 UA = {"User-Agent": os.environ.get("SEC_USER_AGENT", "WoodsonEquity research@woodsonequity.com"),
@@ -166,8 +166,9 @@ def main():
         if good_names:
             fresh = fresh[fresh["Company"].isin(good_names)]
             keep = existing[~existing["Company"].isin(good_names)]
-            prev = REPO / "data" / "woodson_enriched_prev.xlsx"
-            shutil.copy2(ENRICHED, prev)
+            previous = existing.drop_duplicates("Company")[["Company", "Tier"]]
+            PREVIOUS_TIERS.write_text(json.dumps(dict(zip(previous["Company"], previous["Tier"].astype(str))),
+                                                 indent=2, sort_keys=True) + "\n")
             merged = pd.concat([keep, fresh.reindex(columns=existing.columns)], ignore_index=True)
             merged.to_excel(ENRICHED, index=False)
             log.info(f"[incremental] merged {fresh['Company'].nunique()} refreshed companies; "

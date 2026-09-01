@@ -5,7 +5,7 @@ One page, for whoever owns this after the analyst. No coding required to operate
 ## What it is
 A private web tool that screens public companies for likely divestitures, names the division,
 links each signal to its SEC filing, attaches the outreach contact, and manages investment-banker
-relationships. **Overview**, **Carveout Targets**, and **Outreach Queue** handle corporate outreach.
+relationships. **Today**, **Carveout Targets**, and **Outreach Queue** handle corporate outreach.
 **Investment Banks** and **Bankers** organize 518 firms and 1,914 individual banker contacts.
 The supplied firm list is Tier 4 (391 banks); every remaining firm is Tier 3 (127 banks). Tier views
 are available in the Relationships section and bankers inherit their firm's tier.
@@ -25,6 +25,9 @@ make it shared across users and devices.
 
 Banker pages include the approved introductory draft, relationship status, priority, owner, coverage,
 last contact, next follow-up, and notes. Marking a banker contacted creates a follow-up 14 days later.
+The tracker suggests High, Medium, or Low priority from the bank's tier and firm-level priority, the
+banker's seniority, email availability, and relationship timing. A priority selected manually on the banker record overrides the
+suggestion. **Today** shows the high-priority outreach list and follow-ups due.
 Use **Download activity** as a backup because banker relationship history also belongs to the browser
 until the shared HubSpot or database connection is available. The outdated firm overview is not stored
 in the tracker; attach an updated overview before using the banker draft's attachment language.
@@ -57,8 +60,10 @@ No GitHub credential is stored in the browser.
   repo's built-in token.
 
 ## Access (decide this explicitly)
-The app is firm deal data at a URL. Turn on **Vercel Deployment Protection** (password) or the firm's
-SSO. The `vercel.json` already sends `noindex`. Don't share the link outside the firm.
+The app is firm deal data at a URL. Access protection is not enabled yet. Before enabling it, choose
+either **Vercel Deployment Protection** with a shared password or the firm's SSO and confirm who needs
+access so the team is not locked out. The `vercel.json` already sends `noindex`. Don't share the link
+outside the firm.
 
 ## What's automated vs. manual (current state)
 - **Automated:** every morning, with morning and weekday-afternoon fallbacks, the workflow reads new EDGAR daily

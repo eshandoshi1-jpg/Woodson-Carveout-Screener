@@ -101,6 +101,18 @@ class BankerCRMTests(unittest.TestCase):
         self.assertIn("function bankerEffectivePriority", template)
         self.assertIn("Use the relationship record to override it", template)
 
+    def test_banker_follow_up_preserves_strategy_and_exclusions(self):
+        template = Path("data/woodson_app.template.html").read_text()
+        follow_up = template.split("function bankerFollowUpEmail", 1)[1].split("function refreshBankerCounts", 1)[0]
+        self.assertIn('BANKER_FOLLOWUP_SUBJECT="Re: Intro to Woodson Equity"', template)
+        self.assertIn("we have broadened our coverage and now take a more generalist approach", template)
+        self.assertIn("the same core strengths that have long defined Woodson", template)
+        self.assertIn("corporate carveouts and divestitures in diversified industrials and business services", template)
+        self.assertIn("Technology, software, and consumer opportunities remain outside our current focus", template)
+        self.assertIn("I’ve attached our updated firm overview", template)
+        self.assertNotIn("Our firm has grown as has our focus area", template)
+        self.assertNotIn("\u2014", follow_up)
+
 
 class RefreshControlTests(unittest.TestCase):
     def test_manual_refresh_control_uses_protected_workflow(self):

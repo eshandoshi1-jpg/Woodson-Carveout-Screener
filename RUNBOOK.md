@@ -23,7 +23,7 @@ When a draft is marked contacted, the company appears under **Saved Views → Co
 the sidebar. That status currently belongs to the browser that marked it; the future HubSpot sync will
 make it shared across users and devices.
 
-Banker pages include the approved introductory draft, relationship status, priority, owner, coverage,
+Banker pages include the approved introductory draft and a follow-up draft, relationship status, priority, owner, coverage,
 last contact, next follow-up, and notes. Marking a banker contacted creates a follow-up 14 days later.
 The tracker suggests High, Medium, or Low priority from the bank's tier and firm-level priority, the
 banker's seniority, email availability, and relationship timing. A priority selected manually on the banker record overrides the

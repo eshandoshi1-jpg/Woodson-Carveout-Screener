@@ -1,17 +1,16 @@
 {
-  "highWater": "2026-08-31",
-  "lastRun": "2026-09-01T14:25:25.510437Z",
-  "runs": 5,
+  "highWater": "2026-09-01",
+  "lastRun": "2026-09-02T14:37:13.482844Z",
+  "runs": 6,
   "lastCoverage": {
-    "filingsProcessed": 37,
+    "filingsProcessed": 29,
     "indexDays": 1,
     "byForm": {
-      "8-K": 33,
-      "8-K/A": 2,
-      "10-K": 1,
-      "10-Q": 1
+      "8-K": 26,
+      "10-Q": 2,
+      "8-K/A": 1
     },
-    "affected": 35,
-    "window": "2026-08-30..2026-08-31"
+    "affected": 29,
+    "window": "2026-08-31..2026-09-01"
   }
 }
